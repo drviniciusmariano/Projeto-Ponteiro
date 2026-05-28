@@ -799,6 +799,10 @@ def tela_login():
     }}
     .main {{ background-color: #F0F0F0 !important; }}
     .block-container {{ padding: 0 !important; max-width: 100% !important; }}
+    [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
+    [data-testid="stColumns"] {{ gap: 0 !important; align-items: stretch; }}
+    [data-testid="stColumn"] {{ padding: 0 !important; }}
+    [data-testid="stColumn"] > div {{ padding: 0 !important; }}
     div[data-testid="stSidebarContent"] {{ display: none !important; }}
     section[data-testid="stSidebar"] {{ display: none !important; width: 0 !important; }}
     button[kind="header"] {{ display: none !important; }}
@@ -912,27 +916,40 @@ def tela_login():
         st.markdown(_hl, unsafe_allow_html=True)
 
     with col_right:
-        _hr = (
-            '<div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;'
-            'display:flex;flex-direction:column;justify-content:center">'
-            '<div style="max-width:360px;margin:0 auto;width:100%">'
-            '<div style="margin-bottom:40px">'
+        # CSS extra para o painel direito: remover padding do Streamlit e centralizar
+        st.markdown("""
+<style>
+[data-testid="column"]:nth-child(2) {
+    background: #F0F0F0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 !important;
+}
+[data-testid="column"]:nth-child(2) > div:first-child {
+    padding: 48px 52px !important;
+    max-width: 420px;
+    margin: 0 auto;
+    width: 100%;
+}
+</style>""", unsafe_allow_html=True)
+
+        # Cabeçalho
+        st.markdown(
             '<div style="font-size:9px;color:#888;text-transform:uppercase;'
-            'letter-spacing:0.2em;font-weight:700;margin-bottom:8px">Acesso Restrito</div>'
-            '<div style="font-size:2rem;font-weight:900;color:#121212;'
-            'text-transform:uppercase;letter-spacing:-0.02em;line-height:1;margin-bottom:4px">'
-            'ENTRAR NO<br>SISTEMA</div>'
-            '<div style="height:4px;background:#D02020;width:60px;margin-top:12px"></div>'
-            '</div>'
+            'letter-spacing:0.2em;font-weight:700;font-family:Outfit,sans-serif;'
+            'margin-bottom:10px">Acesso Restrito</div>'
+            '<div style="font-size:2.4rem;font-weight:900;color:#121212;'
+            'text-transform:uppercase;letter-spacing:-0.02em;line-height:1;'
+            'font-family:Outfit,sans-serif">ENTRAR NO<br>SISTEMA</div>'
+            '<div style="height:4px;background:#D02020;width:56px;margin:14px 0 32px"></div>',
+            unsafe_allow_html=True
         )
-        st.markdown(_hr, unsafe_allow_html=True)
 
-        # Formulário dentro da coluna direita
-        st.markdown("<div style='max-width:360px;margin:0 auto'>", unsafe_allow_html=True)
         login_input = st.text_input("USUÁRIO", placeholder="seu.login", key="login_input")
-        pw_input = st.text_input("SENHA", type="password", placeholder="••••••••", key="pw_input")
+        pw_input    = st.text_input("SENHA", type="password", placeholder="••••••••", key="pw_input")
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         entrar = st.button("ENTRAR →", use_container_width=True, key="btn_login")
 
         if entrar:
@@ -951,8 +968,6 @@ def tela_login():
                     st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
-
-        st.markdown('<div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # GERADOR DE RELATÓRIO PDF + WHATSAPP
