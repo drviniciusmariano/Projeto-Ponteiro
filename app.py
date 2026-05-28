@@ -497,8 +497,8 @@ def init_users(conn):
     conn.commit()
     if conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0:
         for nome,login,pw,nivel,ck in [
-            ("Dr. Vinícius Mariano","vinicius","integrative2026","CEO","ceo"),
-            ("Dra. Bárbara Mariano","barbara","barbara2026","CEO","barbara"),
+            ("Dr. Vinícius Mariano","vinicius","vinicius2026","CEO","ceo"),
+            ("Dra. Barbara Mariano","barbara","barbara2026","CEO","barbara"),
             ("Vanessa","gerente","gerente2026","Gerente","gerente"),
             ("Bianca","bianca","bianca2026","Operacional","bianca"),
             ("Aline","aline","aline2026","Operacional","aline"),
