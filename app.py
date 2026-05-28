@@ -559,45 +559,47 @@ def tela_trocar_senha():
     col_l, col_r = st.columns([1, 1])
 
     with col_l:
-        st.markdown("""
-        <div style="background:#D02020;min-height:100vh;padding:60px 50px;
-                    display:flex;flex-direction:column;justify-content:center;
-                    border-right:4px solid #121212">
-            <div style="font-size:2.8rem;font-weight:900;color:#FFFFFF;text-transform:uppercase;
-                        letter-spacing:-0.03em;line-height:1;font-family:Outfit,sans-serif;
-                        margin-bottom:20px">PRIMEIRO<br>ACESSO</div>
-            <div style="height:4px;background:#F0C020;margin-bottom:28px"></div>
-            <div style="font-size:1rem;color:rgba(255,255,255,0.8);font-weight:500;line-height:1.7">
-                Por segurança, você precisa criar uma senha pessoal antes de continuar.<br><br>
-                Ela substitui a senha padrão e fica registrada apenas para você.
-            </div>
-            <div style="margin-top:40px;padding:18px;background:rgba(255,255,255,0.1);
-                        border-left:4px solid #F0C020">
-                <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
-                            letter-spacing:0.15em;font-weight:700;margin-bottom:8px">Regras da senha</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:2">
-                    ✓ Mínimo 6 caracteres<br>
-                    ✓ Diferente da senha padrão<br>
-                    ✓ Confirme duas vezes
-                </div>
-            </div>
-        </div>""", unsafe_allow_html=True)
+        _hts = (
+            '<div style="background:#D02020;min-height:100vh;padding:60px 50px;'
+            'display:flex;flex-direction:column;justify-content:center;'
+            'border-right:4px solid #121212">'
+            '<div style="font-size:2.8rem;font-weight:900;color:#FFFFFF;'
+            'text-transform:uppercase;letter-spacing:-0.03em;line-height:1;'
+            'font-family:Outfit,sans-serif;margin-bottom:20px">'
+            'PRIMEIRO<br>ACESSO</div>'
+            '<div style="height:4px;background:#F0C020;margin-bottom:28px"></div>'
+            '<div style="font-size:1rem;color:rgba(255,255,255,0.8);'
+            'font-weight:500;line-height:1.7">'
+            'Por seguran\u00e7a, voc\u00ea precisa criar uma senha pessoal antes de continuar. '
+            'Ela substitui a senha padr\u00e3o e fica registrada apenas para voc\u00ea.'
+            '</div>'
+            '<div style="margin-top:40px;padding:18px;'
+            'background:rgba(255,255,255,0.1);border-left:4px solid #F0C020">'
+            '<div style="font-size:9px;color:rgba(255,255,255,0.6);'
+            'text-transform:uppercase;letter-spacing:0.15em;'
+            'font-weight:700;margin-bottom:8px">Regras da senha</div>'
+            '<div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:2">'
+            '\u2713 M\u00ednimo 6 caracteres<br>'
+            '\u2713 Diferente da senha padr\u00e3o<br>'
+            '\u2713 Confirme duas vezes'
+            '</div></div></div>'
+        )
+        st.markdown(_hts, unsafe_allow_html=True)
 
     with col_r:
-        st.markdown(f"""
-        <div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;
-                    display:flex;flex-direction:column;justify-content:center">
-            <div style="max-width:380px;margin:0 auto;width:100%">
-                <div style="font-size:9px;color:#888;text-transform:uppercase;
-                            letter-spacing:0.2em;font-weight:700;margin-bottom:8px">
-                    Bem-vindo(a), {st.session_state.get('user_nome','').split()[0]}
-                </div>
-                <div style="font-size:2rem;font-weight:900;color:#121212;text-transform:uppercase;
-                            letter-spacing:-0.02em;line-height:1;margin-bottom:4px">
-                    CRIE SUA<br>SENHA
-                </div>
-                <div style="height:4px;background:#D02020;width:60px;margin:12px 0 32px"></div>
-        """, unsafe_allow_html=True)
+        _nome_prim = st.session_state.get("user_nome","").split()[0]
+        _hr2 = (
+            '<div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;'
+            'display:flex;flex-direction:column;justify-content:center">'
+            '<div style="max-width:380px;margin:0 auto;width:100%">'
+            f'<div style="font-size:9px;color:#888;text-transform:uppercase;'
+            f'letter-spacing:0.2em;font-weight:700;margin-bottom:8px">Bem-vindo(a), {_nome_prim}</div>'
+            '<div style="font-size:2rem;font-weight:900;color:#121212;'
+            'text-transform:uppercase;letter-spacing:-0.02em;'
+            'line-height:1;margin-bottom:4px">CRIE SUA<br>SENHA</div>'
+            '<div style="height:4px;background:#D02020;width:60px;margin:12px 0 32px"></div>'
+        )
+        st.markdown(_hr2, unsafe_allow_html=True)
 
         nova1 = st.text_input("NOVA SENHA", type="password",
             placeholder="mínimo 6 caracteres", key="nova_pw1")
@@ -846,97 +848,84 @@ def tela_login():
     col_left, col_right = st.columns([5, 4])
 
     with col_left:
-        st.markdown(f"""
-        <div style="background:#1040C0;min-height:100vh;padding:60px 50px;
-                    display:flex;flex-direction:column;justify-content:space-between;
-                    border-right:4px solid #121212">
-            <!-- Topo: Logo -->
-            <div>
-                <div style="display:flex;gap:6px;align-items:center;margin-bottom:32px">
-                    <div style="width:16px;height:16px;background:#D02020;border:2px solid #F0F0F0;border-radius:50%"></div>
-                    <div style="width:16px;height:16px;background:#F0C020;border:2px solid #F0F0F0;border-radius:0"></div>
-                    <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #F0F0F0"></div>
-                    <div style="font-size:1.4rem;font-weight:900;color:#FFFFFF;
-                                text-transform:uppercase;letter-spacing:-0.01em;
-                                font-family:'Outfit',sans-serif;margin-left:8px">LAB Metrics</div>
-                </div>
-                <div style="height:4px;background:#F0C020;margin-bottom:40px"></div>
-
-                <div style="font-size:3.5rem;font-weight:900;color:#FFFFFF;
-                            text-transform:uppercase;letter-spacing:-0.03em;
-                            line-height:0.95;font-family:'Outfit',sans-serif;
-                            margin-bottom:24px">
-                    GESTÃO<br>
-                    <span style="color:#F0C020">EXECUTIVA</span><br>
-                    INTEGRATIVA
-                </div>
-
-                <div style="font-size:1rem;color:rgba(255,255,255,0.7);
-                            font-weight:500;line-height:1.6;max-width:380px">
-                    Sistema de controle operacional, financeiro e comercial
-                    da Clínica Integrative Campinas.
-                </div>
-            </div>
-
-            <!-- Meio: Indicadores decorativos -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:40px 0">
-                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
-                            padding:16px;border-left:4px solid #F0C020">
-                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
-                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Módulos</div>
-                    <div style="font-size:2rem;font-weight:900;color:#F0C020">17</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
-                            padding:16px;border-left:4px solid #D02020">
-                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
-                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Equipe</div>
-                    <div style="font-size:2rem;font-weight:900;color:#FFFFFF">7</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
-                            padding:16px;border-left:4px solid #F0F0F0">
-                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
-                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">KPIs</div>
-                    <div style="font-size:2rem;font-weight:900;color:#FFFFFF">40+</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
-                            padding:16px;border-left:4px solid #F0C020">
-                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
-                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Método</div>
-                    <div style="font-size:1.2rem;font-weight:900;color:#F0C020">AME</div>
-                </div>
-            </div>
-
-            <!-- Rodapé -->
-            <div style="border-top:2px solid rgba(255,255,255,0.2);padding-top:20px">
-                <div style="font-size:10px;color:rgba(255,255,255,0.5);font-style:italic">
-                    "Ideia é prata. Mentalidade é ouro.
-                    <strong style="color:#F0C020;font-style:normal">Execução é diamante.</strong>"
-                </div>
-                <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:8px;
-                            text-transform:uppercase;letter-spacing:0.1em">
-                    Powered by Projeto Ponteiro
-                </div>
-            </div>
-        </div>""", unsafe_allow_html=True)
+        _hl = (
+            '<div style="background:#1040C0;min-height:100vh;padding:60px 50px;'
+            'display:flex;flex-direction:column;justify-content:space-between;'
+            'border-right:4px solid #121212">'
+            '<div>'
+            '<div style="display:flex;gap:8px;align-items:center;margin-bottom:28px">'
+            '<div style="width:14px;height:14px;background:#D02020;border-radius:50%"></div>'
+            '<div style="width:14px;height:14px;background:#F0C020"></div>'
+            '<div style="width:0;height:0;border-left:7px solid transparent;'
+            'border-right:7px solid transparent;border-bottom:14px solid #F0F0F0"></div>'
+            '<span style="font-size:1.1rem;font-weight:900;color:#FFFFFF;'
+            'text-transform:uppercase;font-family:Outfit,sans-serif;margin-left:6px">'
+            'LAB Metrics</span></div>'
+            '<div style="height:4px;background:#F0C020;margin-bottom:36px"></div>'
+            '<div style="font-size:3rem;font-weight:900;color:#FFFFFF;'
+            'text-transform:uppercase;letter-spacing:-0.03em;'
+            'line-height:0.95;font-family:Outfit,sans-serif;margin-bottom:20px">'
+            'GEST\u00c3O<br>'
+            '<span style="color:#F0C020">EXECUTIVA</span><br>'
+            'INTEGRATIVA</div>'
+            '<div style="font-size:0.9rem;color:rgba(255,255,255,0.75);'
+            'font-weight:500;line-height:1.65;max-width:340px">'
+            'Sistema de controle operacional, financeiro e comercial'
+            ' da Cl\u00ednica Integrative Campinas.</div>'
+            '</div>'
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:36px 0">'
+            '<div style="background:rgba(255,255,255,0.1);padding:14px;'
+            'border-left:4px solid #F0C020">'
+            '<div style="font-size:8px;color:rgba(255,255,255,0.6);'
+            'text-transform:uppercase;letter-spacing:0.15em;'
+            'font-weight:700;margin-bottom:4px">M\u00f3dulos</div>'
+            '<div style="font-size:1.8rem;font-weight:900;color:#F0C020">18</div></div>'
+            '<div style="background:rgba(255,255,255,0.1);padding:14px;'
+            'border-left:4px solid #D02020">'
+            '<div style="font-size:8px;color:rgba(255,255,255,0.6);'
+            'text-transform:uppercase;letter-spacing:0.15em;'
+            'font-weight:700;margin-bottom:4px">Equipe</div>'
+            '<div style="font-size:1.8rem;font-weight:900;color:#FFFFFF">7</div></div>'
+            '<div style="background:rgba(255,255,255,0.1);padding:14px;'
+            'border-left:4px solid rgba(255,255,255,0.4)">'
+            '<div style="font-size:8px;color:rgba(255,255,255,0.6);'
+            'text-transform:uppercase;letter-spacing:0.15em;'
+            'font-weight:700;margin-bottom:4px">KPIs</div>'
+            '<div style="font-size:1.8rem;font-weight:900;color:#FFFFFF">40+</div></div>'
+            '<div style="background:rgba(255,255,255,0.1);padding:14px;'
+            'border-left:4px solid #F0C020">'
+            '<div style="font-size:8px;color:rgba(255,255,255,0.6);'
+            'text-transform:uppercase;letter-spacing:0.15em;'
+            'font-weight:700;margin-bottom:4px">M\u00e9todo</div>'
+            '<div style="font-size:1.1rem;font-weight:900;color:#F0C020">AME</div></div>'
+            '</div>'
+            '<div style="border-top:2px solid rgba(255,255,255,0.2);padding-top:16px">'
+            '<div style="font-size:9px;color:rgba(255,255,255,0.5);font-style:italic">'
+            '\u201cIdeia \u00e9 prata. Mentalidade \u00e9 ouro. '
+            '<strong style="color:#F0C020;font-style:normal">'
+            'Execu\u00e7\u00e3o \u00e9 diamante.</strong>\u201d</div>'
+            '<div style="font-size:8px;color:rgba(255,255,255,0.3);margin-top:6px;'
+            'text-transform:uppercase;letter-spacing:0.1em">'
+            'Powered by Projeto Ponteiro</div>'
+            '</div></div>'
+        )
+        st.markdown(_hl, unsafe_allow_html=True)
 
     with col_right:
-        st.markdown(f"""
-        <div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;
-                    display:flex;flex-direction:column;justify-content:center">
-            <div style="max-width:360px;margin:0 auto;width:100%">
-                <div style="margin-bottom:40px">
-                    <div style="font-size:9px;color:#888;text-transform:uppercase;
-                                letter-spacing:0.2em;font-weight:700;margin-bottom:8px">
-                        Acesso Restrito
-                    </div>
-                    <div style="font-size:2rem;font-weight:900;color:#121212;
-                                text-transform:uppercase;letter-spacing:-0.02em;
-                                line-height:1;margin-bottom:4px">
-                        ENTRAR NO<br>SISTEMA
-                    </div>
-                    <div style="height:4px;background:#D02020;width:60px;margin-top:12px"></div>
-                </div>
-        """, unsafe_allow_html=True)
+        _hr = (
+            '<div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;'
+            'display:flex;flex-direction:column;justify-content:center">'
+            '<div style="max-width:360px;margin:0 auto;width:100%">'
+            '<div style="margin-bottom:40px">'
+            '<div style="font-size:9px;color:#888;text-transform:uppercase;'
+            'letter-spacing:0.2em;font-weight:700;margin-bottom:8px">Acesso Restrito</div>'
+            '<div style="font-size:2rem;font-weight:900;color:#121212;'
+            'text-transform:uppercase;letter-spacing:-0.02em;line-height:1;margin-bottom:4px">'
+            'ENTRAR NO<br>SISTEMA</div>'
+            '<div style="height:4px;background:#D02020;width:60px;margin-top:12px"></div>'
+            '</div>'
+        )
+        st.markdown(_hr, unsafe_allow_html=True)
 
         # Formulário dentro da coluna direita
         st.markdown("<div style='max-width:360px;margin:0 auto'>", unsafe_allow_html=True)
