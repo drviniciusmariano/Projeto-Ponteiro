@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import sqlite3, os, json, io, hashlib, base64
 from datetime import datetime, date, timedelta
+try:
+    from whatsapp_module import render_whatsapp_module
+    HAS_WH = True
+except ImportError:
+    HAS_WH = False
 import anthropic
 try:
     from fpdf import FPDF
@@ -472,16 +477,23 @@ def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
 def init_users(conn):
     conn.executescript("""
     CREATE TABLE IF NOT EXISTS usuarios(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        login TEXT UNIQUE NOT NULL,
-        senha_hash TEXT NOT NULL,
-        nivel TEXT DEFAULT 'Operacional',
-        cargo_key TEXT DEFAULT '',
-        ativo INTEGER DEFAULT 1,
-        ultimo_acesso TEXT DEFAULT ''
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome            TEXT NOT NULL,
+        login           TEXT UNIQUE NOT NULL,
+        senha_hash      TEXT NOT NULL,
+        nivel           TEXT DEFAULT 'Operacional',
+        cargo_key       TEXT DEFAULT '',
+        ativo           INTEGER DEFAULT 1,
+        primeiro_acesso INTEGER DEFAULT 1,
+        ultimo_acesso   TEXT DEFAULT ''
     );
     """)
+    # Migração: adicionar coluna se não existir (banco antigo)
+    try:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN primeiro_acesso INTEGER DEFAULT 1")
+        conn.commit()
+    except Exception:
+        pass
     conn.commit()
     if conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0:
         for nome,login,pw,nivel,ck in [
@@ -493,21 +505,124 @@ def init_users(conn):
             ("Beatriz","beatriz","beatriz2026","Operacional","beatriz"),
             ("Paloma","paloma","paloma2026","Operacional","paloma"),
         ]:
-            conn.execute("INSERT INTO usuarios(nome,login,senha_hash,nivel,cargo_key) VALUES(?,?,?,?,?)",
+            conn.execute(
+                "INSERT INTO usuarios(nome,login,senha_hash,nivel,cargo_key,primeiro_acesso) VALUES(?,?,?,?,?,1)",
                 (nome,login,hash_pw(pw),nivel,ck))
         conn.commit()
 
 def autenticar(login, pw):
     conn = get_conn()
     init_users(conn)
-    r = conn.execute("SELECT id,nome,nivel,cargo_key FROM usuarios WHERE login=? AND senha_hash=? AND ativo=1",
+    r = conn.execute(
+        "SELECT id,nome,nivel,cargo_key,primeiro_acesso FROM usuarios WHERE login=? AND senha_hash=? AND ativo=1",
         (login.strip().lower(), hash_pw(pw))).fetchone()
     if r:
         conn.execute("UPDATE usuarios SET ultimo_acesso=? WHERE id=?",
             (datetime.now().isoformat(), r[0]))
         conn.commit()
     conn.close()
-    return r  # (id, nome, nivel, cargo_key) ou None
+    return r  # (id, nome, nivel, cargo_key, primeiro_acesso) ou None
+
+def trocar_senha(user_id, nova_senha):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE usuarios SET senha_hash=?, primeiro_acesso=0 WHERE id=?",
+        (hash_pw(nova_senha), user_id))
+    conn.commit()
+    conn.close()
+
+# ══════════════════════════════════════════════════════════════
+# TELA DE TROCA DE SENHA — exibida obrigatoriamente no 1º acesso
+# ══════════════════════════════════════════════════════════════
+def tela_trocar_senha():
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+    html,body,[class*="css"]{font-family:'Outfit',sans-serif!important;background:#F0F0F0!important;}
+    .main{background:#F0F0F0!important;}
+    .block-container{padding:0!important;max-width:100%!important;}
+    section[data-testid="stSidebar"]{display:none!important;width:0!important;}
+    header{display:none!important;}
+    .stTextInput>div>div>input{background:#FFFFFF!important;border:3px solid #121212!important;
+        border-radius:0!important;color:#121212!important;font-family:'Outfit',sans-serif!important;
+        font-size:1rem!important;padding:14px 16px!important;}
+    .stTextInput>div>div>input:focus{border-color:#1040C0!important;
+        box-shadow:4px 4px 0 #1040C0!important;outline:none!important;}
+    .stButton>button{background:#D02020!important;color:#FFFFFF!important;border:3px solid #121212!important;
+        border-radius:0!important;font-family:'Outfit',sans-serif!important;font-weight:900!important;
+        font-size:1rem!important;text-transform:uppercase!important;letter-spacing:0.12em!important;
+        padding:14px 28px!important;box-shadow:5px 5px 0 #121212!important;width:100%!important;
+        transition:all 0.15s ease-out!important;}
+    .stButton>button:hover{transform:translateY(-2px)!important;box-shadow:7px 7px 0 #121212!important;}
+    </style>""", unsafe_allow_html=True)
+
+    col_l, col_r = st.columns([1, 1])
+
+    with col_l:
+        st.markdown("""
+        <div style="background:#D02020;min-height:100vh;padding:60px 50px;
+                    display:flex;flex-direction:column;justify-content:center;
+                    border-right:4px solid #121212">
+            <div style="font-size:2.8rem;font-weight:900;color:#FFFFFF;text-transform:uppercase;
+                        letter-spacing:-0.03em;line-height:1;font-family:Outfit,sans-serif;
+                        margin-bottom:20px">PRIMEIRO<br>ACESSO</div>
+            <div style="height:4px;background:#F0C020;margin-bottom:28px"></div>
+            <div style="font-size:1rem;color:rgba(255,255,255,0.8);font-weight:500;line-height:1.7">
+                Por segurança, você precisa criar uma senha pessoal antes de continuar.<br><br>
+                Ela substitui a senha padrão e fica registrada apenas para você.
+            </div>
+            <div style="margin-top:40px;padding:18px;background:rgba(255,255,255,0.1);
+                        border-left:4px solid #F0C020">
+                <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                            letter-spacing:0.15em;font-weight:700;margin-bottom:8px">Regras da senha</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:2">
+                    ✓ Mínimo 6 caracteres<br>
+                    ✓ Diferente da senha padrão<br>
+                    ✓ Confirme duas vezes
+                </div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    with col_r:
+        st.markdown(f"""
+        <div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;
+                    display:flex;flex-direction:column;justify-content:center">
+            <div style="max-width:380px;margin:0 auto;width:100%">
+                <div style="font-size:9px;color:#888;text-transform:uppercase;
+                            letter-spacing:0.2em;font-weight:700;margin-bottom:8px">
+                    Bem-vindo(a), {st.session_state.get('user_nome','').split()[0]}
+                </div>
+                <div style="font-size:2rem;font-weight:900;color:#121212;text-transform:uppercase;
+                            letter-spacing:-0.02em;line-height:1;margin-bottom:4px">
+                    CRIE SUA<br>SENHA
+                </div>
+                <div style="height:4px;background:#D02020;width:60px;margin:12px 0 32px"></div>
+        """, unsafe_allow_html=True)
+
+        nova1 = st.text_input("NOVA SENHA", type="password",
+            placeholder="mínimo 6 caracteres", key="nova_pw1")
+        nova2 = st.text_input("CONFIRMAR SENHA", type="password",
+            placeholder="repita a senha", key="nova_pw2")
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        if st.button("SALVAR E ENTRAR →", use_container_width=True, key="btn_trocar"):
+            if not nova1 or not nova2:
+                st.error("Preencha os dois campos.")
+            elif len(nova1) < 6:
+                st.error("A senha precisa ter no mínimo 6 caracteres.")
+            elif nova1 != nova2:
+                st.error("As senhas não coincidem.")
+            elif nova1 in ("integrative2026","barbara2026","gerente2026",
+                           "bianca2026","aline2026","beatriz2026","paloma2026"):
+                st.error("Use uma senha diferente da senha padrão.")
+            else:
+                trocar_senha(st.session_state.user_id, nova1)
+                st.session_state.primeiro_acesso = False
+                st.success("Senha criada! Entrando no sistema...")
+                st.rerun()
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # HELPERS & COMPONENTES BAUHAUS
@@ -837,28 +952,18 @@ def tela_login():
             else:
                 user = autenticar(login_input, pw_input)
                 if user:
-                    st.session_state.user_id    = user[0]
-                    st.session_state.user_nome  = user[1]
-                    st.session_state.user_nivel = user[2]
-                    st.session_state.user_cargo = user[3]
-                    st.session_state.logado     = True
-                    st.session_state.aba        = "🏠  Dashboard"
+                    st.session_state.user_id         = user[0]
+                    st.session_state.user_nome       = user[1]
+                    st.session_state.user_nivel      = user[2]
+                    st.session_state.user_cargo      = user[3]
+                    st.session_state.primeiro_acesso = bool(user[4]) if len(user) > 4 else False
+                    st.session_state.logado          = True
+                    st.session_state.aba             = "🏠  Dashboard"
                     st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
 
-        st.markdown(f"""
-            <div style="margin-top:32px;padding:14px;background:#FFFFFF;
-                        border:2px solid #E0E0E0;border-left:4px solid #1040C0">
-                <div style="font-size:9px;color:#888;text-transform:uppercase;
-                            letter-spacing:0.1em;font-weight:700;margin-bottom:6px">Usuários padrão</div>
-                <div style="font-size:11px;color:#444;line-height:2;font-weight:500">
-                    vinicius / integrative2026<br>
-                    gerente / gerente2026<br>
-                    bianca / bianca2026
-                </div>
-            </div>
-        </div></div>""", unsafe_allow_html=True)
+        st.markdown('<div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # GERADOR DE RELATÓRIO PDF + WHATSAPP
@@ -976,6 +1081,7 @@ MODULOS = [
     ("📐","OKRs","Objectives e KRs","#2A8A2A","📐  OKRs"),
     ("🧬","Importar","Support Clinic","#D02020","🧬  Importar Support Clinic"),
     ("🤖","Assistente","LAB Metrics IA","#1040C0","🤖  Assistente LAB Metrics"),
+    ("📱","WhatsApp","Lançamentos automáticos","#25D366","📱  WhatsApp"),
     ("⚙️","Config","Configurações","#121212","⚙️  Configurações"),
 ]
 
@@ -1207,15 +1313,21 @@ def tela_dashboard():
 # ══════════════════════════════════════════════════════════════
 # Inicializar session state
 if "logado" not in st.session_state:
-    st.session_state.logado     = False
-    st.session_state.user_nome  = ""
-    st.session_state.user_nivel = ""
-    st.session_state.user_cargo = ""
-    st.session_state.aba        = "🏠  Dashboard"
+    st.session_state.logado          = False
+    st.session_state.user_nome       = ""
+    st.session_state.user_nivel      = ""
+    st.session_state.user_cargo      = ""
+    st.session_state.primeiro_acesso = False
+    st.session_state.aba             = "🏠  Dashboard"
 
 # Se não logado → mostrar tela de login
 if not st.session_state.logado:
     tela_login()
+    st.stop()
+
+# Se é o primeiro acesso → exigir troca de senha antes de tudo
+if st.session_state.get("primeiro_acesso", False):
+    tela_trocar_senha()
     st.stop()
 
 # ── Sidebar (só aparece quando logado, colapsável) ────────────
@@ -2523,9 +2635,15 @@ Prejuízo no-show: R$ {perda_ns_ctx:,.2f}
 # ══════════════════════════════════════════════════════════════
 # 17. CONFIGURAÇÕES
 # ══════════════════════════════════════════════════════════════
+elif aba=="📱  WhatsApp":
+    if HAS_WH:
+        render_whatsapp_module()
+    else:
+        st.error("Módulo whatsapp_module.py não encontrado. Certifique-se que está na mesma pasta do app.py")
+
 elif aba=="⚙️  Configurações":
     st.markdown(titulo_secao("Configurações","Clínica, equipe e integração com IA."),unsafe_allow_html=True)
-    tab1,tab2,tab3=st.tabs(["CLÍNICA & METAS","COLABORADORES","API KEY"])
+    tab1,tab2,tab3,tab4=st.tabs(["CLÍNICA & METAS","COLABORADORES","API KEY","🔑 MINHA CONTA"])
     with tab1:
         conn=get_conn(); cr=conn.execute("SELECT * FROM clinica WHERE id=1").fetchone(); conn.close()
         with st.form("form_cl"):
@@ -2562,3 +2680,140 @@ elif aba=="⚙️  Configurações":
             </div>
             <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.2);font-style:italic">"Ideia é prata. Mentalidade é ouro. Execução é diamante."</div>
         </div>""",unsafe_allow_html=True)
+
+    # ── Minha Conta ──────────────────────────────────────────────
+    with tab4:
+        _uid = st.session_state.get("user_id")
+        _nome_u = st.session_state.get("user_nome","")
+        _nivel_u = st.session_state.get("user_nivel","")
+
+        # Card de perfil
+        st.markdown(f"""
+        <div style="background:#FFFFFF;border:4px solid #121212;padding:24px 28px;
+                    box-shadow:6px 6px 0 #121212;margin-bottom:24px;display:flex;
+                    align-items:center;gap:20px">
+            <div style="width:56px;height:56px;background:#1040C0;border:3px solid #121212;
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:1.4rem;font-weight:900;color:#F0C020;
+                        font-family:'Outfit',sans-serif;flex-shrink:0">
+                {_nome_u[0].upper() if _nome_u else '?'}
+            </div>
+            <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#121212;text-transform:uppercase;
+                            letter-spacing:-0.01em;font-family:'Outfit',sans-serif">{_nome_u}</div>
+                <div style="font-size:11px;color:#888;font-weight:500;margin-top:2px">{_nivel_u}</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+        # Trocar senha
+        st.markdown(f"""
+        <div style="background:#121212;border:3px solid #121212;padding:12px 18px;margin-bottom:16px">
+            <span style="font-size:10px;color:#F0C020;font-weight:700;text-transform:uppercase;
+                         letter-spacing:0.12em;font-family:'Outfit',sans-serif">
+                🔑 ALTERAR SENHA
+            </span>
+        </div>""", unsafe_allow_html=True)
+
+        with st.form("form_trocar_senha_config"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                pw_atual = st.text_input("Senha atual", type="password",
+                    placeholder="••••••••", key="pw_atual_cfg")
+            with c2:
+                pw_nova1 = st.text_input("Nova senha", type="password",
+                    placeholder="mínimo 6 caracteres", key="pw_nova1_cfg")
+            with c3:
+                pw_nova2 = st.text_input("Confirmar nova senha", type="password",
+                    placeholder="repita a nova senha", key="pw_nova2_cfg")
+
+            if st.form_submit_button("🔑 SALVAR NOVA SENHA", use_container_width=True):
+                if not pw_atual or not pw_nova1 or not pw_nova2:
+                    st.error("Preencha todos os campos.")
+                elif len(pw_nova1) < 6:
+                    st.error("A nova senha precisa ter no mínimo 6 caracteres.")
+                elif pw_nova1 != pw_nova2:
+                    st.error("A nova senha e a confirmação não coincidem.")
+                elif pw_nova1 == pw_atual:
+                    st.error("A nova senha precisa ser diferente da senha atual.")
+                elif pw_nova1 in ("integrative2026","barbara2026","gerente2026",
+                                  "bianca2026","aline2026","beatriz2026","paloma2026"):
+                    st.error("Use uma senha diferente da senha padrão do sistema.")
+                else:
+                    # Verificar senha atual
+                    conn_pw = get_conn()
+                    ok_atual = conn_pw.execute(
+                        "SELECT id FROM usuarios WHERE id=? AND senha_hash=?",
+                        (_uid, hash_pw(pw_atual))).fetchone()
+                    conn_pw.close()
+                    if not ok_atual:
+                        st.error("Senha atual incorreta.")
+                    else:
+                        trocar_senha(_uid, pw_nova1)
+                        st.success("Senha alterada com sucesso!")
+
+        # Seção: usuários do sistema (somente CEO/Gerente)
+        _nivel_atual = st.session_state.get("user_nivel","")
+        if _nivel_atual in ("CEO","Gerente"):
+            st.markdown("---")
+            st.markdown(f"""
+            <div style="background:#121212;border:3px solid #121212;padding:12px 18px;margin-bottom:16px">
+                <span style="font-size:10px;color:#F0C020;font-weight:700;text-transform:uppercase;
+                             letter-spacing:0.12em;font-family:'Outfit',sans-serif">
+                    👥 GERENCIAR USUÁRIOS DO SISTEMA
+                </span>
+            </div>""", unsafe_allow_html=True)
+
+            conn_u = get_conn()
+            users_df = pd.read_sql(
+                "SELECT id,nome,login,nivel,cargo_key,ativo,primeiro_acesso,ultimo_acesso FROM usuarios",
+                conn_u)
+            conn_u.close()
+
+            if not users_df.empty:
+                for _, row in users_df.iterrows():
+                    cor_u = "#2A8A2A" if row['ativo'] else "#D02020"
+                    tag_pa = " · ⚠️ Senha padrão" if row['primeiro_acesso'] else ""
+                    st.markdown(f"""
+                    <div style="background:#FFFFFF;border:3px solid #121212;padding:12px 16px;
+                                margin-bottom:6px;box-shadow:3px 3px 0 #121212;
+                                display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:#121212">
+                                {row['nome']}
+                                <span style="font-size:10px;color:#D02020;font-weight:500">{tag_pa}</span>
+                            </div>
+                            <div style="font-size:10px;color:#888">
+                                {row['login']} · {row['nivel']}
+                                {f" · Último acesso: {row['ultimo_acesso'][:10]}" if row['ultimo_acesso'] else ""}
+                            </div>
+                        </div>
+                        <div style="background:{cor_u};padding:4px 10px;border:2px solid #121212">
+                            <span style="font-size:9px;font-weight:700;color:#FFFFFF;text-transform:uppercase">
+                                {"ATIVO" if row['ativo'] else "INATIVO"}
+                            </span>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+            # Resetar senha de um usuário
+            with st.expander("🔄 Resetar Senha de Usuário"):
+                with st.form("form_reset_pw"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        user_reset = st.selectbox("Usuário",
+                            users_df['login'].tolist() if not users_df.empty else [],
+                            format_func=lambda x: f"{x} — {users_df[users_df['login']==x]['nome'].values[0]}" if not users_df.empty else x)
+                    with c2:
+                        nova_pw_reset = st.text_input("Nova senha temporária", type="password",
+                            placeholder="mínimo 6 caracteres")
+                    if st.form_submit_button("RESETAR SENHA", use_container_width=True):
+                        if not nova_pw_reset or len(nova_pw_reset) < 6:
+                            st.error("Senha precisa ter no mínimo 6 caracteres.")
+                        else:
+                            uid_reset = users_df[users_df['login']==user_reset]['id'].values[0]
+                            conn_r = get_conn()
+                            # Resetar senha E marcar como primeiro_acesso para forçar troca
+                            conn_r.execute(
+                                "UPDATE usuarios SET senha_hash=?, primeiro_acesso=1 WHERE id=?",
+                                (hash_pw(nova_pw_reset), int(uid_reset)))
+                            conn_r.commit(); conn_r.close()
+                            st.success(f"Senha de '{user_reset}' resetada! Usuário precisará criar nova senha no próximo acesso.")
