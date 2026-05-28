@@ -1,11 +1,19 @@
 import streamlit as st
 import pandas as pd
-import sqlite3, os, json, io
+import sqlite3, os, json, io, hashlib, base64
 from datetime import datetime, date, timedelta
 import anthropic
+try:
+    from fpdf import FPDF
+    HAS_PDF = True
+except ImportError:
+    HAS_PDF = False
 
-st.set_page_config(page_title="LAB Metrics — Integrative Campinas",
-    page_icon="🩺", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="LAB Metrics — Integrative Campinas",
+    page_icon="🩺", layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # ══════════════════════════════════════════════════════════════
 # DESIGN SYSTEM — BAUHAUS
@@ -377,7 +385,6 @@ hr { border: none; border-top: 3px solid #121212; margin: 24px 0; }
 }
 </style>""", unsafe_allow_html=True)
 
-
 # ══════════════════════════════════════════════════════════════
 # BANCO DE DADOS — schema completo
 # ══════════════════════════════════════════════════════════════
@@ -411,7 +418,7 @@ def init_db():
     """)
     conn.commit()
     if conn.execute("SELECT COUNT(*) FROM colaboradores").fetchone()[0]==0:
-        for n,f,k,na,zg in [("Dr. Vinícius Mariano","CEO","ceo","CEO / Proprietário","Estratégia e decisão"),("Dra. Bárbara Mariano","Diretora Técnica","barbara","CEO / Proprietário","Protocolos e qualidade"),("Gerente Executiva","Gerente Operacional","gerente","Gerente Executiva","Execução e indicadores"),("Bianca","Coord. Comercial e Closer","bianca","Gerente Executiva","Fechamento e conversão"),("Aline","Analista de Leads","aline","Operacional","Qualificação e follow-up"),("Beatriz","Recepção Comercial + RFM","beatriz","Operacional","Acolhimento e relacionamento"),("Paloma","Enfermeira Assistencial","paloma","Operacional","Cuidado técnico e segurança")]:
+        for n,f,k,na,zg in [("Dr. Vinícius Mariano","CEO","ceo","CEO / Proprietário","Estratégia e decisão"),("Dra. Bárbara Mariano","Diretora Técnica","barbara","CEO / Proprietário","Protocolos e qualidade"),("Vanessa","Gerente Executiva","gerente","Gerente Executiva","Execução e indicadores"),("Bianca","Coord. Comercial e Closer","bianca","Gerente Executiva","Fechamento e conversão"),("Aline","Analista de Leads","aline","Operacional","Qualificação e follow-up"),("Beatriz","Recepção Comercial + RFM","beatriz","Operacional","Acolhimento e relacionamento"),("Paloma","Enfermeira Assistencial","paloma","Operacional","Cuidado técnico e segurança")]:
             conn.execute("INSERT INTO colaboradores(nome,funcao,cargo_key,nivel_acesso,zona_genialidade) VALUES(?,?,?,?,?)",(n,f,k,na,zg))
     if conn.execute("SELECT COUNT(*) FROM mod_tarefas").fetchone()[0]==0:
         for t,ck,resp,dri,bloco,hr,cat,peso in [
@@ -458,11 +465,56 @@ def init_db():
 init_db()
 
 # ══════════════════════════════════════════════════════════════
+# AUTENTICAÇÃO — tabela de usuários
+# ══════════════════════════════════════════════════════════════
+def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+def init_users(conn):
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS usuarios(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        login TEXT UNIQUE NOT NULL,
+        senha_hash TEXT NOT NULL,
+        nivel TEXT DEFAULT 'Operacional',
+        cargo_key TEXT DEFAULT '',
+        ativo INTEGER DEFAULT 1,
+        ultimo_acesso TEXT DEFAULT ''
+    );
+    """)
+    conn.commit()
+    if conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0:
+        for nome,login,pw,nivel,ck in [
+            ("Dr. Vinícius Mariano","vinicius","integrative2026","CEO","ceo"),
+            ("Dra. Bárbara Mariano","barbara","barbara2026","CEO","barbara"),
+            ("Vanessa","gerente","gerente2026","Gerente","gerente"),
+            ("Bianca","bianca","bianca2026","Operacional","bianca"),
+            ("Aline","aline","aline2026","Operacional","aline"),
+            ("Beatriz","beatriz","beatriz2026","Operacional","beatriz"),
+            ("Paloma","paloma","paloma2026","Operacional","paloma"),
+        ]:
+            conn.execute("INSERT INTO usuarios(nome,login,senha_hash,nivel,cargo_key) VALUES(?,?,?,?,?)",
+                (nome,login,hash_pw(pw),nivel,ck))
+        conn.commit()
+
+def autenticar(login, pw):
+    conn = get_conn()
+    init_users(conn)
+    r = conn.execute("SELECT id,nome,nivel,cargo_key FROM usuarios WHERE login=? AND senha_hash=? AND ativo=1",
+        (login.strip().lower(), hash_pw(pw))).fetchone()
+    if r:
+        conn.execute("UPDATE usuarios SET ultimo_acesso=? WHERE id=?",
+            (datetime.now().isoformat(), r[0]))
+        conn.commit()
+    conn.close()
+    return r  # (id, nome, nivel, cargo_key) ou None
+
+# ══════════════════════════════════════════════════════════════
 # HELPERS & COMPONENTES BAUHAUS
 # ══════════════════════════════════════════════════════════════
 MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-EQUIPE=["Gerente Executiva","Bianca","Aline","Beatriz","Paloma","Dr. Vinícius Mariano","Dra. Bárbara Mariano"]
-CARGO_MAP={"gerente":"Gerente Executiva","bianca":"Bianca","aline":"Aline","beatriz":"Beatriz","paloma":"Paloma","ceo":"Dr. Vinícius Mariano","barbara":"Dra. Bárbara Mariano"}
+EQUIPE=["Vanessa","Bianca","Aline","Beatriz","Paloma","Dr. Vinícius Mariano","Dra. Bárbara Mariano"]
+CARGO_MAP={"gerente":"Vanessa","bianca":"Bianca","aline":"Aline","beatriz":"Beatriz","paloma":"Paloma","ceo":"Dr. Vinícius Mariano","barbara":"Dra. Bárbara Mariano"}
 
 def fmt(v):
     if v is None: return "R$ 0,00"
@@ -616,92 +668,614 @@ A — AVALIAÇÃO: [leitura da gerente sobre o dia]
 R — RECOMENDAÇÃO: [o que precisa ser feito amanhã, com DRI e prazo]""",
 }
 
+# ══════════════════════════════════════════════════════════════
+# TELA DE LOGIN
+# ══════════════════════════════════════════════════════════════
+def tela_login():
+    st.markdown(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+    * {{ box-sizing: border-box; }}
+    html, body, [class*="css"] {{
+        font-family: 'Outfit', sans-serif !important;
+        background-color: #F0F0F0 !important;
+    }}
+    .main {{ background-color: #F0F0F0 !important; }}
+    .block-container {{ padding: 0 !important; max-width: 100% !important; }}
+    div[data-testid="stSidebarContent"] {{ display: none !important; }}
+    section[data-testid="stSidebar"] {{ display: none !important; width: 0 !important; }}
+    button[kind="header"] {{ display: none !important; }}
+    header {{ display: none !important; }}
+    .stTextInput > div > div > input {{
+        background: #FFFFFF !important;
+        border: 3px solid #121212 !important;
+        border-radius: 0 !important;
+        color: #121212 !important;
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 500 !important;
+        font-size: 1rem !important;
+        padding: 14px 16px !important;
+    }}
+    .stTextInput > div > div > input:focus {{
+        border-color: #1040C0 !important;
+        box-shadow: 4px 4px 0px 0px #1040C0 !important;
+        outline: none !important;
+    }}
+    .stButton > button {{
+        background-color: #D02020 !important;
+        color: #FFFFFF !important;
+        border: 3px solid #121212 !important;
+        border-radius: 0 !important;
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 900 !important;
+        font-size: 1rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.12em !important;
+        padding: 14px 28px !important;
+        box-shadow: 5px 5px 0px 0px #121212 !important;
+        width: 100% !important;
+        transition: all 0.15s ease-out !important;
+    }}
+    .stButton > button:hover {{
+        background-color: #B01A1A !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 7px 7px 0px 0px #121212 !important;
+    }}
+    .stButton > button:active {{
+        transform: translate(4px, 4px) !important;
+        box-shadow: 1px 1px 0px 0px #121212 !important;
+    }}
+    </style>""", unsafe_allow_html=True)
+
+    # Layout: painel esquerdo colorido + formulário direito
+    col_left, col_right = st.columns([5, 4])
+
+    with col_left:
+        st.markdown(f"""
+        <div style="background:#1040C0;min-height:100vh;padding:60px 50px;
+                    display:flex;flex-direction:column;justify-content:space-between;
+                    border-right:4px solid #121212">
+            <!-- Topo: Logo -->
+            <div>
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:32px">
+                    <div style="width:16px;height:16px;background:#D02020;border:2px solid #F0F0F0;border-radius:50%"></div>
+                    <div style="width:16px;height:16px;background:#F0C020;border:2px solid #F0F0F0;border-radius:0"></div>
+                    <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #F0F0F0"></div>
+                    <div style="font-size:1.4rem;font-weight:900;color:#FFFFFF;
+                                text-transform:uppercase;letter-spacing:-0.01em;
+                                font-family:'Outfit',sans-serif;margin-left:8px">LAB Metrics</div>
+                </div>
+                <div style="height:4px;background:#F0C020;margin-bottom:40px"></div>
+
+                <div style="font-size:3.5rem;font-weight:900;color:#FFFFFF;
+                            text-transform:uppercase;letter-spacing:-0.03em;
+                            line-height:0.95;font-family:'Outfit',sans-serif;
+                            margin-bottom:24px">
+                    GESTÃO<br>
+                    <span style="color:#F0C020">EXECUTIVA</span><br>
+                    INTEGRATIVA
+                </div>
+
+                <div style="font-size:1rem;color:rgba(255,255,255,0.7);
+                            font-weight:500;line-height:1.6;max-width:380px">
+                    Sistema de controle operacional, financeiro e comercial
+                    da Clínica Integrative Campinas.
+                </div>
+            </div>
+
+            <!-- Meio: Indicadores decorativos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:40px 0">
+                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
+                            padding:16px;border-left:4px solid #F0C020">
+                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Módulos</div>
+                    <div style="font-size:2rem;font-weight:900;color:#F0C020">17</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
+                            padding:16px;border-left:4px solid #D02020">
+                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Equipe</div>
+                    <div style="font-size:2rem;font-weight:900;color:#FFFFFF">7</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
+                            padding:16px;border-left:4px solid #F0F0F0">
+                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">KPIs</div>
+                    <div style="font-size:2rem;font-weight:900;color:#FFFFFF">40+</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);
+                            padding:16px;border-left:4px solid #F0C020">
+                    <div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                                letter-spacing:0.15em;font-weight:700;margin-bottom:6px">Método</div>
+                    <div style="font-size:1.2rem;font-weight:900;color:#F0C020">AME</div>
+                </div>
+            </div>
+
+            <!-- Rodapé -->
+            <div style="border-top:2px solid rgba(255,255,255,0.2);padding-top:20px">
+                <div style="font-size:10px;color:rgba(255,255,255,0.5);font-style:italic">
+                    "Ideia é prata. Mentalidade é ouro.
+                    <strong style="color:#F0C020;font-style:normal">Execução é diamante.</strong>"
+                </div>
+                <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:8px;
+                            text-transform:uppercase;letter-spacing:0.1em">
+                    Powered by Projeto Ponteiro
+                </div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    with col_right:
+        st.markdown(f"""
+        <div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;
+                    display:flex;flex-direction:column;justify-content:center">
+            <div style="max-width:360px;margin:0 auto;width:100%">
+                <div style="margin-bottom:40px">
+                    <div style="font-size:9px;color:#888;text-transform:uppercase;
+                                letter-spacing:0.2em;font-weight:700;margin-bottom:8px">
+                        Acesso Restrito
+                    </div>
+                    <div style="font-size:2rem;font-weight:900;color:#121212;
+                                text-transform:uppercase;letter-spacing:-0.02em;
+                                line-height:1;margin-bottom:4px">
+                        ENTRAR NO<br>SISTEMA
+                    </div>
+                    <div style="height:4px;background:#D02020;width:60px;margin-top:12px"></div>
+                </div>
+        """, unsafe_allow_html=True)
+
+        # Formulário dentro da coluna direita
+        st.markdown("<div style='max-width:360px;margin:0 auto'>", unsafe_allow_html=True)
+        login_input = st.text_input("USUÁRIO", placeholder="seu.login", key="login_input")
+        pw_input = st.text_input("SENHA", type="password", placeholder="••••••••", key="pw_input")
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        entrar = st.button("ENTRAR →", use_container_width=True, key="btn_login")
+
+        if entrar:
+            if not login_input or not pw_input:
+                st.error("Preencha usuário e senha.")
+            else:
+                user = autenticar(login_input, pw_input)
+                if user:
+                    st.session_state.user_id    = user[0]
+                    st.session_state.user_nome  = user[1]
+                    st.session_state.user_nivel = user[2]
+                    st.session_state.user_cargo = user[3]
+                    st.session_state.logado     = True
+                    st.session_state.aba        = "🏠  Dashboard"
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha incorretos.")
+
+        st.markdown(f"""
+            <div style="margin-top:32px;padding:14px;background:#FFFFFF;
+                        border:2px solid #E0E0E0;border-left:4px solid #1040C0">
+                <div style="font-size:9px;color:#888;text-transform:uppercase;
+                            letter-spacing:0.1em;font-weight:700;margin-bottom:6px">Usuários padrão</div>
+                <div style="font-size:11px;color:#444;line-height:2;font-weight:500">
+                    vinicius / integrative2026<br>
+                    gerente / gerente2026<br>
+                    bianca / bianca2026
+                </div>
+            </div>
+        </div></div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-# SIDEBAR
+# GERADOR DE RELATÓRIO PDF + WHATSAPP
 # ══════════════════════════════════════════════════════════════
-with st.sidebar:
-    # Logo Bauhaus — três formas geométricas
-    st.markdown(f"""<div style="padding:20px 16px 0;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+def gerar_pdf_relatorio(titulo, secoes):
+    """secoes = list of (titulo_sec, list_of_linhas_str)"""
+    if not HAS_PDF:
+        return None
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(15, 15, 15)
+    # Cabeçalho
+    pdf.set_fill_color(16, 64, 192)
+    pdf.rect(0, 0, 210, 28, 'F')
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(15, 8)
+    pdf.cell(0, 10, "LAB METRICS — INTEGRATIVE CAMPINAS", ln=True)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_xy(15, 19)
+    pdf.cell(0, 6, f"{titulo}   |   Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True)
+    # Linha amarela
+    pdf.set_fill_color(240, 192, 32)
+    pdf.rect(0, 28, 210, 3, 'F')
+    pdf.set_y(38)
+    pdf.set_text_color(18, 18, 18)
+    for sec_titulo, linhas in secoes:
+        # Título da seção
+        pdf.set_fill_color(18, 18, 18)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 8, f"  {sec_titulo.upper()}", ln=True, fill=True)
+        pdf.set_text_color(18, 18, 18)
+        pdf.set_font("Helvetica", "", 9)
+        for i, linha in enumerate(linhas):
+            fill = i % 2 == 0
+            if fill:
+                pdf.set_fill_color(240, 240, 240)
+            else:
+                pdf.set_fill_color(255, 255, 255)
+            pdf.cell(0, 7, f"  {linha}", ln=True, fill=True)
+        pdf.ln(4)
+    # Rodapé
+    pdf.set_y(-20)
+    pdf.set_fill_color(208, 32, 32)
+    pdf.rect(0, pdf.get_y(), 210, 20, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.cell(0, 8, "Projeto Ponteiro — Metodo AME — Execucao e diamante.", ln=True, align="C")
+    buf = io.BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+def bloco_exportar(nome_modulo, secoes_texto, texto_whats):
+    """Renderiza botões de PDF + copiar para WhatsApp ao final de cada módulo."""
+    st.markdown(f"""
+    <div style="background:#121212;border:3px solid #121212;padding:16px 20px;
+                margin-top:32px;display:flex;align-items:center;gap:12px">
+        <div style="height:4px;width:32px;background:#F0C020;flex-shrink:0"></div>
+        <div style="font-size:10px;color:#F0C020;text-transform:uppercase;
+                    letter-spacing:0.15em;font-weight:700;font-family:'Outfit',sans-serif">
+            Exportar Relatório — {nome_modulo}
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if HAS_PDF:
+            pdf_bytes = gerar_pdf_relatorio(nome_modulo, secoes_texto)
+            if pdf_bytes:
+                st.download_button(
+                    label="⬇ BAIXAR PDF",
+                    data=pdf_bytes,
+                    file_name=f"relatorio_{nome_modulo.lower().replace(' ','_')}_{date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key=f"pdf_{nome_modulo}"
+                )
+        else:
+            st.warning("Instale fpdf2 para PDF.")
+    with c2:
+        st.download_button(
+            label="⬇ BAIXAR TXT",
+            data=texto_whats.encode("utf-8"),
+            file_name=f"relatorio_{nome_modulo.lower().replace(' ','_')}_{date.today()}.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key=f"txt_{nome_modulo}"
+        )
+    with c3:
+        # Copiar para clipboard via textarea + instrução
+        st.text_area("📋 Copiar para WhatsApp",
+            value=texto_whats, height=120,
+            key=f"wa_{nome_modulo}",
+            help="Selecione tudo (Ctrl+A) e copie (Ctrl+C) para colar no WhatsApp")
+
+
+# ══════════════════════════════════════════════════════════════
+# DASHBOARD PRINCIPAL
+# ══════════════════════════════════════════════════════════════
+MODULOS = [
+    ("🩺","Cockpit CEO","Decisão em 30 segundos","#1040C0","🩺  Cockpit CEO"),
+    ("☀️","Briefing","Abertura do dia","#2A8A2A","☀️  Briefing — Abertura do Dia"),
+    ("🌙","Debriefing","Fechamento do dia","#121212","🌙  Debriefing — Fechamento do Dia"),
+    ("📊","Painel DNA","Metas semanais","#D02020","📊  Painel DNA Semanal"),
+    ("🏥","Auditoria Salas","Ocupação e no-show","#1040C0","🏥  Auditoria de Salas"),
+    ("📈","Comercial","Funil e SDR","#2A8A2A","📈  Comercial & SDR"),
+    ("💰","Orçamentos","Pipeline de fechamento","#D02020","💰  Orçamentos"),
+    ("🔄","RFM","Reativação e indicações","#1040C0","🔄  RFM & Indicações"),
+    ("📋","Réguas","D-1 / D+1 / Follow-up","#F0C020","📋  Réguas D-1 / D+1"),
+    ("🎓","Programa Integra","MOD e onboarding","#2A8A2A","🎓  Programa Integra"),
+    ("🩻","Segurança","Checklist assistencial","#D02020","🩻  Segurança Assistencial"),
+    ("📣","SBAR","Comunicação estruturada","#121212","📣  SBAR"),
+    ("💰","Financeiro","DRE e EBITDA","#1040C0","💰  Financeiro & EBITDA"),
+    ("📐","OKRs","Objectives e KRs","#2A8A2A","📐  OKRs"),
+    ("🧬","Importar","Support Clinic","#D02020","🧬  Importar Support Clinic"),
+    ("🤖","Assistente","LAB Metrics IA","#1040C0","🤖  Assistente LAB Metrics"),
+    ("⚙️","Config","Configurações","#121212","⚙️  Configurações"),
+]
+
+def tela_dashboard():
+    conn = get_conn()
+    clin_r  = conn.execute("SELECT * FROM clinica WHERE id=1").fetchone()
+    dre_r   = conn.execute("SELECT * FROM dre WHERE mes=? AND ano=?",
+        (MESES[datetime.now().month-1], datetime.now().year)).fetchone()
+    leads_r = conn.execute("SELECT COUNT(*),SUM(convertido),AVG(tempo_resp) FROM leads WHERE mes=? AND ano=?",
+        (MESES[datetime.now().month-1], datetime.now().year)).fetchone()
+    salas_r = conn.execute("SELECT AVG(horas_ocup*100.0/NULLIF(horas_disp,0)),SUM(perda) FROM salas WHERE mes=? AND ano=?",
+        (MESES[datetime.now().month-1], datetime.now().year)).fetchone()
+    exec_h  = conn.execute("SELECT COUNT(*),SUM(concluida) FROM mod_execucao WHERE data_exec=?",
+        (date.today().isoformat(),)).fetchone()
+    # MOD por colaborador
+    colabs_df = pd.read_sql("SELECT * FROM colaboradores WHERE ativo=1", conn)
+    tarefas_n = conn.execute("SELECT COUNT(*) FROM mod_tarefas WHERE ativo=1").fetchone()[0]
+    conn.close()
+
+    rb  = sum([(dre_r[i] or 0) for i in [3,4,5,6]]) if dre_r else 0
+    meta = clin_r[2] if clin_r else 0
+    imp  = dre_r[7] if dre_r else 8.5; tc = dre_r[8] if dre_r else 3.0
+    ins  = dre_r[9] if dre_r else 0
+    cf   = sum([(dre_r[i] or 0) for i in [10,11,12,13]]) if dre_r else 0
+    ebitda = rb*(1-(imp+tc)/100) - ins - cf
+    l_tot = leads_r[0] or 0; l_conv = leads_r[1] or 0
+    tx_conv = pct_safe(int(l_conv or 0), int(l_tot or 1))
+    tx_ocup = salas_r[0] if salas_r and salas_r[0] else 0
+    score_mod = min(round((exec_h[1] or 0)/max(exec_h[0] or 1,1)*100,1),100) if exec_h else 0
+    pct_meta = pct_safe(rb, meta)
+
+    # ── Barra de topo ────────────────────────────────────────
+    st.markdown(f"""
+    <div style="background:#121212;border-bottom:4px solid #F0C020;
+                padding:12px 28px;display:flex;justify-content:space-between;
+                align-items:center;margin:-2rem -2.5rem 28px;position:sticky;top:0;z-index:100">
+        <div style="display:flex;align-items:center;gap:10px">
             <div style="display:flex;gap:4px;align-items:center">
-                <div style="width:14px;height:14px;background:{RED_B};border:2px solid #F0F0F0;border-radius:50%"></div>
-                <div style="width:14px;height:14px;background:{YELL_B};border:2px solid #F0F0F0;border-radius:0"></div>
-                <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid {BLUE_B}"></div>
+                <div style="width:10px;height:10px;background:#D02020;border-radius:50%"></div>
+                <div style="width:10px;height:10px;background:#F0C020"></div>
+                <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid #1040C0"></div>
             </div>
-            <div>
-                <div style="font-size:1rem;font-weight:900;color:#F0F0F0;
-                            letter-spacing:-0.01em;text-transform:uppercase;
-                            font-family:'Outfit',sans-serif">LAB Metrics</div>
-                <div style="font-size:9px;color:#888;letter-spacing:0.15em;
-                            text-transform:uppercase;font-family:'Outfit',sans-serif;
-                            font-weight:700">Integrative Campinas</div>
+            <div style="font-size:0.9rem;font-weight:900;color:#F0F0F0;
+                        text-transform:uppercase;letter-spacing:0.05em;
+                        font-family:'Outfit',sans-serif">LAB Metrics</div>
+            <div style="font-size:10px;color:#888;border-left:2px solid #333;
+                        padding-left:10px;font-family:'Outfit',sans-serif;font-weight:500">
+                Integrative Campinas
             </div>
         </div>
-        <div style="height:3px;background:{YELL_B};margin-bottom:0"></div>
-    </div>""",unsafe_allow_html=True)
+        <div style="display:flex;align-items:center;gap:16px">
+            <div style="font-size:10px;color:#888;font-family:'Outfit',sans-serif">
+                {date.today().strftime('%d/%m/%Y')}
+            </div>
+            <div style="background:#1040C0;padding:6px 14px;border:2px solid #444">
+                <span style="font-size:10px;color:#F0F0F0;font-weight:700;
+                             text-transform:uppercase;letter-spacing:0.1em;
+                             font-family:'Outfit',sans-serif">
+                    {st.session_state.get('user_nome','Usuário')}
+                </span>
+            </div>
+        </div>
+    </div>""", unsafe_allow_html=True)
 
-    conn=get_conn(); clin=conn.execute("SELECT * FROM clinica WHERE id=1").fetchone(); conn.close()
-    estagio_sb=clin[4] if clin and len(clin)>4 else "Intuitivo"
+    # ── Título ────────────────────────────────────────────────
+    st.markdown(f"""
+    <div style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:0;margin-bottom:0">
+            <div style="width:8px;height:40px;background:{RED_B};margin-right:14px;flex-shrink:0"></div>
+            <div>
+                <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.2em;
+                            font-weight:700;font-family:'Outfit',sans-serif">Dashboard Executivo</div>
+                <div style="font-size:1.4rem;font-weight:900;color:#121212;text-transform:uppercase;
+                            letter-spacing:-0.02em;font-family:'Outfit',sans-serif;line-height:1">
+                    Painel de Controle — {date.today().strftime('%d/%m/%Y')}
+                </div>
+            </div>
+        </div>
+        <div style="height:3px;background:#121212;margin-top:10px"></div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── KPIs principais (linha 1) ─────────────────────────────
+    kpis = [
+        ("Faturamento Realizado", fmt(rb), f"{pct_meta:.0f}% da meta", RED_B if pct_meta<60 else YELL_B if pct_meta<85 else GREEN, RED_B),
+        ("Meta Mensal", fmt(meta), f"Falta {fmt(max(meta-rb,0))}", BLUE_B, BLUE_B),
+        ("EBITDA Operacional", fmt(ebitda), f"{pct_safe(ebitda,rb):.1f}% de margem", GREEN if ebitda>0 else RED_B, GREEN if ebitda>0 else RED_B),
+        ("Conversão de Leads", f"{tx_conv:.1f}%", f"{int(l_conv or 0)} de {l_tot} leads", GREEN if tx_conv>=30 else RED_B, YELL_B),
+        ("Ocupação das Salas", f"{tx_ocup:.1f}%", "meta: 85%", GREEN if tx_ocup>=85 else YELL_B if tx_ocup>=60 else RED_B, BLUE_B),
+        ("Score MOD Equipe", f"{score_mod:.1f}%", "meta: 85%", GREEN if score_mod>=85 else RED_B, RED_B),
+    ]
+    cols_kpi = st.columns(6)
+    for col, (lbl, val, sub, cor_val, cor_dec) in zip(cols_kpi, kpis):
+        with col:
+            st.markdown(f"""
+            <div style="background:#FFFFFF;border:4px solid #121212;border-radius:0;
+                        padding:16px 18px;box-shadow:5px 5px 0px 0px #121212;
+                        position:relative;overflow:hidden;margin-bottom:4px">
+                <div style="position:absolute;top:0;left:0;width:6px;height:100%;background:{cor_dec}"></div>
+                <div style="padding-left:8px">
+                    <div style="font-size:8px;color:#888;text-transform:uppercase;letter-spacing:0.15em;
+                                font-weight:700;margin-bottom:8px;font-family:'Outfit',sans-serif">{lbl}</div>
+                    <div style="font-size:1.5rem;font-weight:900;color:{cor_val};letter-spacing:-0.02em;
+                                line-height:1;font-family:'Outfit',sans-serif">{val}</div>
+                    <div style="font-size:10px;color:#888;margin-top:6px;
+                                font-weight:500;font-family:'Outfit',sans-serif">{sub}</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+    # ── Barra de progresso da meta mensal ────────────────────
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    cor_barra = RED_B if pct_meta<60 else YELL_B if pct_meta<85 else GREEN
+    st.markdown(f"""
+    <div style="background:#FFFFFF;border:3px solid #121212;padding:14px 18px;
+                margin-bottom:28px;box-shadow:4px 4px 0 #121212">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;
+                         letter-spacing:0.15em;color:#121212;font-family:'Outfit',sans-serif">
+                PROGRESSO DA META MENSAL
+            </span>
+            <span style="font-size:14px;font-weight:900;color:{cor_barra};
+                         font-family:'Outfit',sans-serif">{pct_meta:.1f}%</span>
+        </div>
+        <div style="height:16px;background:#E0E0E0;border:2px solid #121212;overflow:hidden">
+            <div style="height:100%;width:{min(pct_meta,100):.1f}%;background:{cor_barra};
+                        transition:width 0.6s ease-out"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;
+                    font-size:10px;color:#888;font-family:'Outfit',sans-serif">
+            <span>Realizado: {fmt(rb)}</span>
+            <span>Meta: {fmt(meta)}</span>
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── KPIs de equipe (MOD por colaborador) ─────────────────
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:16px">
+        <div style="width:8px;height:28px;background:{BLUE_B};margin-right:12px;flex-shrink:0"></div>
+        <div style="font-size:1rem;font-weight:900;color:#121212;text-transform:uppercase;
+                    letter-spacing:-0.01em;font-family:'Outfit',sans-serif">Tarefas da Equipe — Hoje</div>
+    </div>""", unsafe_allow_html=True)
+
+    if not colabs_df.empty:
+        conn2 = get_conn()
+        cols_eq = st.columns(min(len(colabs_df), 7))
+        for i, (_, colab) in enumerate(colabs_df.iterrows()):
+            if i >= 7: break
+            tarefas_colab = conn2.execute("SELECT COUNT(*) FROM mod_tarefas WHERE cargo_key=? AND ativo=1",
+                (colab['cargo_key'],)).fetchone()[0]
+            feitas = conn2.execute("SELECT COUNT(*) FROM mod_execucao me JOIN mod_tarefas mt ON me.tarefa_id=mt.id WHERE mt.cargo_key=? AND me.data_exec=? AND me.concluida=1",
+                (colab['cargo_key'], date.today().isoformat())).fetchone()[0]
+            sc = pct_safe(feitas, tarefas_colab) if tarefas_colab else 0
+            cor_sc = GREEN if sc>=85 else YELL_B if sc>=50 else RED_B
+            emoji_nivel = "🏆" if sc>=85 else "📈" if sc>=50 else "⚠️"
+            with cols_eq[i]:
+                st.markdown(f"""
+                <div style="background:#FFFFFF;border:3px solid #121212;padding:12px 10px;
+                            text-align:center;box-shadow:3px 3px 0 #121212;margin-bottom:8px">
+                    <div style="font-size:18px;margin-bottom:4px">{emoji_nivel}</div>
+                    <div style="font-size:9px;font-weight:700;text-transform:uppercase;
+                                letter-spacing:0.08em;color:#121212;font-family:'Outfit',sans-serif;
+                                margin-bottom:6px;line-height:1.2">{colab['nome'].split()[0]}</div>
+                    <div style="font-size:1.3rem;font-weight:900;color:{cor_sc};
+                                font-family:'Outfit',sans-serif">{sc:.0f}%</div>
+                    <div style="font-size:8px;color:#888;font-family:'Outfit',sans-serif">{feitas}/{tarefas_colab}</div>
+                    <div style="height:6px;background:#E0E0E0;border:1px solid #121212;
+                                margin-top:6px;overflow:hidden">
+                        <div style="height:100%;width:{min(sc,100):.0f}%;background:{cor_sc}"></div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
+        conn2.close()
+
+    # ── Grade de módulos ──────────────────────────────────────
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:16px">
+        <div style="width:8px;height:28px;background:{YELL_B};margin-right:12px;flex-shrink:0;border:1px solid #121212"></div>
+        <div style="font-size:1rem;font-weight:900;color:#121212;text-transform:uppercase;
+                    letter-spacing:-0.01em;font-family:'Outfit',sans-serif">Módulos do Sistema</div>
+    </div>""", unsafe_allow_html=True)
+
+    # Grid 6 colunas com cards clicáveis
+    linhas = [MODULOS[i:i+6] for i in range(0, len(MODULOS), 6)]
+    for linha in linhas:
+        cols_mod = st.columns(6)
+        for col, (emoji, nome, desc, cor, aba_key) in zip(cols_mod, linha):
+            with col:
+                txt_cor = "#121212" if cor == YELL_B else "#FFFFFF"
+                if st.button(f"{emoji}\n{nome}", key=f"mod_{aba_key}", use_container_width=True,
+                             help=desc):
+                    st.session_state.aba = aba_key
+                    st.rerun()
+                st.markdown(f"""
+                <div style="font-size:9px;color:#888;text-align:center;
+                            margin-top:-4px;margin-bottom:8px;font-family:'Outfit',sans-serif">
+                    {desc}
+                </div>""", unsafe_allow_html=True)
+
+    # ── Alertas rápidos ───────────────────────────────────────
+    conn3 = get_conn()
+    orc_quentes = conn3.execute("SELECT COUNT(*) FROM orcamentos WHERE temperatura='Quente' AND status='Aberto' AND proxima_acao=''").fetchone()[0]
+    seg_d1 = conn3.execute("SELECT COUNT(*) FROM seguranca WHERE d1_enviado=0").fetchone()[0]
+    sbar_pend = conn3.execute("SELECT COUNT(*) FROM sbar WHERE resolvido=0").fetchone()[0]
+    conn3.close()
+
+    alertas = []
+    if orc_quentes > 0: alertas.append((RED_B, f"🔥 {orc_quentes} orçamento(s) QUENTE sem ação — Bianca, ligar agora!"))
+    if seg_d1 > 0:      alertas.append((YELL_B, f"⚠️ {seg_d1} paciente(s) sem D+1 enviado — Paloma, enviar até 10h!"))
+    if sbar_pend > 0:   alertas.append((BLUE_B, f"📣 {sbar_pend} SBAR(s) pendente(s) de resolução"))
+    if score_mod < 85:  alertas.append((RED_B, f"📋 Score MOD abaixo de 85% — verificar tarefas da equipe"))
+
+    if alertas:
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:0;margin:24px 0 12px">
+            <div style="width:8px;height:28px;background:{RED_B};margin-right:12px;flex-shrink:0"></div>
+            <div style="font-size:1rem;font-weight:900;color:#121212;text-transform:uppercase;
+                        letter-spacing:-0.01em;font-family:'Outfit',sans-serif">Alertas Críticos</div>
+        </div>""", unsafe_allow_html=True)
+        for cor_a, msg_a in alertas:
+            txt_a = "#121212" if cor_a == YELL_B else "#FFFFFF"
+            st.markdown(f"""
+            <div style="background:{cor_a};border:3px solid #121212;padding:12px 18px;
+                        margin-bottom:6px;box-shadow:3px 3px 0 #121212">
+                <span style="font-size:13px;font-weight:700;color:{txt_a};
+                             font-family:'Outfit',sans-serif">{msg_a}</span>
+            </div>""", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════
+# CONTROLE DE FLUXO — LOGIN → DASHBOARD → MÓDULOS
+# ══════════════════════════════════════════════════════════════
+# Inicializar session state
+if "logado" not in st.session_state:
+    st.session_state.logado     = False
+    st.session_state.user_nome  = ""
+    st.session_state.user_nivel = ""
+    st.session_state.user_cargo = ""
+    st.session_state.aba        = "🏠  Dashboard"
+
+# Se não logado → mostrar tela de login
+if not st.session_state.logado:
+    tela_login()
+    st.stop()
+
+# ── Sidebar (só aparece quando logado, colapsável) ────────────
+with st.sidebar:
+    st.markdown(f"""
+    <div style="padding:16px 14px 8px">
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:8px">
+            <div style="width:10px;height:10px;background:{RED_B};border-radius:50%;border:1px solid #555"></div>
+            <div style="width:10px;height:10px;background:{YELL_B};border:1px solid #555"></div>
+            <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid {BLUE_B}"></div>
+            <div style="font-size:0.8rem;font-weight:900;color:#F0F0F0;
+                        text-transform:uppercase;letter-spacing:0.05em;
+                        font-family:'Outfit',sans-serif;margin-left:6px">LAB Metrics</div>
+        </div>
+        <div style="height:2px;background:{YELL_B};margin-bottom:10px"></div>
+        <div style="background:#1040C0;padding:8px 10px;margin-bottom:12px;border:1px solid #333">
+            <div style="font-size:8px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                        letter-spacing:0.1em;font-weight:700;margin-bottom:2px">Logado como</div>
+            <div style="font-size:11px;color:#F0F0F0;font-weight:700;
+                        font-family:'Outfit',sans-serif">{st.session_state.user_nome}</div>
+            <div style="font-size:9px;color:#888">{st.session_state.user_nivel}</div>
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+    conn_sb = get_conn()
+    clin_sb = conn_sb.execute("SELECT * FROM clinica WHERE id=1").fetchone()
+    conn_sb.close()
+    estagio_sb = clin_sb[4] if clin_sb and len(clin_sb)>4 else "Intuitivo"
     cor_est = {"Caótico":RED_B,"Intuitivo":YELL_B,"Documentado":BLUE_B,"Previsível":GREEN}.get(estagio_sb,BLUE_B)
     txt_est = "#121212" if cor_est==YELL_B else "#FFFFFF"
-    st.markdown(f"""<div style="margin:0 0 12px;padding:8px 16px;background:{cor_est};
-        border-bottom:2px solid #444">
-        <div style="font-size:8px;color:{txt_est if cor_est!=YELL_B else '#444'};
-                    text-transform:uppercase;letter-spacing:0.15em;font-weight:700;
-                    font-family:'Outfit',sans-serif;opacity:0.8;margin-bottom:2px">Estágio</div>
-        <div style="font-size:13px;color:{txt_est};font-weight:900;
-                    text-transform:uppercase;letter-spacing:0.05em;
-                    font-family:'Outfit',sans-serif">{estagio_sb}</div>
-    </div>""",unsafe_allow_html=True)
 
-    # Seletor de período
-    st.markdown(f"""<div style="padding:8px 16px 4px">
-        <div style="font-size:8px;color:#888;text-transform:uppercase;
-                    letter-spacing:0.15em;font-weight:700;font-family:'Outfit',sans-serif;
-                    margin-bottom:6px">Período</div>
-    </div>""",unsafe_allow_html=True)
-    c1,c2=st.columns([3,2])
-    with c1: mes_sel=st.selectbox("M",MESES,index=datetime.now().month-1,label_visibility="collapsed")
-    with c2: ano_sel=st.number_input("A",value=datetime.now().year,min_value=2020,max_value=2030,label_visibility="collapsed")
+    # Período
+    c1sb,c2sb = st.columns([3,2])
+    with c1sb: mes_sel = st.selectbox("M",MESES,index=datetime.now().month-1,label_visibility="collapsed")
+    with c2sb: ano_sel = st.number_input("A",value=datetime.now().year,min_value=2020,max_value=2030,label_visibility="collapsed")
 
-    st.markdown(f'<div style="height:3px;background:{YELL_B};margin:12px 0 4px"></div>',unsafe_allow_html=True)
+    st.markdown(f'<div style="height:2px;background:{YELL_B};margin:8px 0 4px"></div>',unsafe_allow_html=True)
 
-    aba=st.radio("",[
-        "🩺  Cockpit CEO",
-        "☀️  Briefing — Abertura do Dia",
-        "🌙  Debriefing — Fechamento do Dia",
-        "📊  Painel DNA Semanal",
-        "🏥  Auditoria de Salas",
-        "📈  Comercial & SDR",
-        "💰  Orçamentos",
-        "🔄  RFM & Indicações",
-        "📋  Réguas D-1 / D+1",
-        "🎓  Programa Integra",
-        "🩻  Segurança Assistencial",
-        "📣  SBAR",
-        "💰  Financeiro & EBITDA",
-        "📐  OKRs",
-        "🧬  Importar Support Clinic",
-        "🤖  Assistente LAB Metrics",
-        "⚙️  Configurações",
-    ],label_visibility="collapsed")
+    # Navegação
+    opcoes_nav = ["🏠  Dashboard"] + [m[4] for m in MODULOS]
+    aba = st.radio("", opcoes_nav, label_visibility="collapsed",
+        index=opcoes_nav.index(st.session_state.aba) if st.session_state.aba in opcoes_nav else 0)
+    st.session_state.aba = aba
 
-    st.markdown(f"""<div style="padding:16px;margin-top:8px;border-top:2px solid #333">
-        <div style="font-size:10px;color:#888;line-height:1.6;
-                    font-style:italic;font-family:'Outfit',sans-serif">
-            "Ideia é prata. Mentalidade é ouro.<br>
-            <span style="color:{YELL_B};font-style:normal;font-weight:700;font-size:10px">
-            Execução é diamante.
-            </span>"
-        </div>
-    </div>""",unsafe_allow_html=True)
+    st.markdown(f'<div style="height:2px;background:#333;margin:12px 0 8px"></div>',unsafe_allow_html=True)
+    if st.button("↩ SAIR", use_container_width=True):
+        for k in ["logado","user_nome","user_nivel","user_cargo","user_id","aba"]:
+            if k in st.session_state: del st.session_state[k]
+        st.rerun()
 
+# Recuperar aba do session state
+aba = st.session_state.aba
 
 # ══════════════════════════════════════════════════════════════
 # 1. COCKPIT CEO
 # ══════════════════════════════════════════════════════════════
-if aba=="🩺  Cockpit CEO":
+if aba=="🏠  Dashboard":
+    tela_dashboard()
+
+elif aba=="🩺  Cockpit CEO":
     st.markdown(titulo_secao("Cockpit de Decisão Executiva","Tudo que você precisa saber em 30 segundos"),unsafe_allow_html=True)
     conn=get_conn()
     dre_r=conn.execute("SELECT * FROM dre WHERE mes=? AND ano=?",(mes_sel,ano_sel)).fetchone()
@@ -772,6 +1346,15 @@ if aba=="🩺  Cockpit CEO":
 # ══════════════════════════════════════════════════════════════
 # 2. BRIEFING
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar relatório ───────────────────────────────────────
+    try:
+        _secoes_cockpit_ceo = [("Cockpit CEO", ["Meta mensal: " + fmt(meta_fat), "Receita: " + fmt(rb), "EBITDA: " + fmt(ebitda), "Score MOD: " + str(score_mod) + "%"])]
+        _txt_cockpit_ceo = "\n".join([f"{l}" for _,ls in _secoes_cockpit_ceo for l in ls])
+        bloco_exportar("Cockpit CEO", _secoes_cockpit_ceo, _txt_cockpit_ceo)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="☀️  Briefing — Abertura do Dia":
     hj=date.today().isoformat(); hj_fmt=date.today().strftime("%d/%m/%Y")
     st.markdown(titulo_secao(f"Briefing de Abertura — {hj_fmt}","Rituais de 10 minutos. Agenda, oportunidades e prioridades definidas antes do primeiro atendimento."),unsafe_allow_html=True)
@@ -906,6 +1489,15 @@ elif aba=="☀️  Briefing — Abertura do Dia":
 # ══════════════════════════════════════════════════════════════
 # 3. DEBRIEFING
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar relatório ───────────────────────────────────────
+    try:
+        _secoes_briefing_diário = [("Briefing Diário", [f"Data: {hj_fmt}", f"Responsável: {resp_bf if bf else '-'}", f"Consultas: {bf[3] if bf else 0}", f"Procedimentos: {bf[4] if bf else 0}"])]
+        _txt_briefing_diário = "\n".join([f"{l}" for _,ls in _secoes_briefing_diário for l in ls])
+        bloco_exportar("Briefing Diário", _secoes_briefing_diário, _txt_briefing_diário)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="🌙  Debriefing — Fechamento do Dia":
     hj=date.today().isoformat(); hj_fmt=date.today().strftime("%d/%m/%Y")
     st.markdown(titulo_secao(f"Debriefing de Fechamento — {hj_fmt}","Caixa do dia, agenda realizada e ações comerciais concretizadas. Feche o dia com clareza."),unsafe_allow_html=True)
@@ -1024,6 +1616,15 @@ elif aba=="🌙  Debriefing — Fechamento do Dia":
 # ══════════════════════════════════════════════════════════════
 # 4. PAINEL DNA SEMANAL
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar relatório ───────────────────────────────────────
+    try:
+        _secoes_debriefing = [("Debriefing", [f"Data: {hj_fmt}", "Caixa registrado com sucesso"])]
+        _txt_debriefing = "\n".join([f"{l}" for _,ls in _secoes_debriefing for l in ls])
+        bloco_exportar("Debriefing", _secoes_debriefing, _txt_debriefing)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="📊  Painel DNA Semanal":
     sw=f"S{date.today().isocalendar()[1]}"
     st.markdown(titulo_secao("Painel de Metas Semanais DNA","Quem sabe o número fecha o número. Preencha toda segunda-feira."),unsafe_allow_html=True)
@@ -1079,6 +1680,15 @@ elif aba=="📊  Painel DNA Semanal":
 # ══════════════════════════════════════════════════════════════
 # 5. AUDITORIA DE SALAS
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar relatório ───────────────────────────────────────
+    try:
+        _secoes_painel_dna = [("Painel DNA", [f"Meta mensal: {fmt(meta_m_d)}", f"Total previsto: {fmt(total_prev)}", f"Meta diária: {fmt(meta_diaria)}"])]
+        _txt_painel_dna = "\n".join([f"{l}" for _,ls in _secoes_painel_dna for l in ls])
+        bloco_exportar("Painel DNA", _secoes_painel_dna, _txt_painel_dna)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="🏥  Auditoria de Salas":
     st.markdown(titulo_secao("Auditoria de Eficiência das Salas","Inventário de tempo perecível. Hora não vendida não volta."),unsafe_allow_html=True)
     conn=get_conn(); salas_df=pd.read_sql("SELECT * FROM salas WHERE mes=? AND ano=?",conn,params=(mes_sel,ano_sel)); conn.close()
@@ -1122,6 +1732,15 @@ elif aba=="🏥  Auditoria de Salas":
 # ══════════════════════════════════════════════════════════════
 # 6. COMERCIAL & SDR
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar relatório ───────────────────────────────────────
+    try:
+        _secoes_auditoria_de_salas = [("Auditoria de Salas", [f"Total salas: {len(salas_df)}", f"Perda no-show: {fmt(total_perda) if not salas_df.empty else 'R$ 0,00'}"])]
+        _txt_auditoria_de_salas = "\n".join([f"{l}" for _,ls in _secoes_auditoria_de_salas for l in ls])
+        bloco_exportar("Auditoria de Salas", _secoes_auditoria_de_salas, _txt_auditoria_de_salas)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="📈  Comercial & SDR":
     st.markdown(titulo_secao("Comercial & SDR","Os 9 Gargalos das Vendas Médicas — funil com método"),unsafe_allow_html=True)
     conn=get_conn(); leads_df=pd.read_sql("SELECT * FROM leads WHERE mes=? AND ano=? ORDER BY id DESC",conn,params=(mes_sel,ano_sel)); conn.close()
@@ -1178,6 +1797,15 @@ elif aba=="📈  Comercial & SDR":
 # ══════════════════════════════════════════════════════════════
 # 7. ORÇAMENTOS
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar Comercial ──────────────────────────────────────
+    try:
+        _sec_com=[("Comercial e SDR",[f"Total leads: {tot}",f"Agendados: {ag} ({pct_safe(ag,tot):.0f}%)",f"Convertidos: {conv} ({pct_safe(conv,tot):.0f}%)",f"Resp <5min: {resp5} ({tx_vel:.0f}%)"])]
+        _txt_com="\n".join([l for _,ls in _sec_com for l in ls])
+        bloco_exportar("Comercial e SDR",_sec_com,_txt_com)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="💰  Orçamentos":
     st.markdown(titulo_secao("Controle de Orçamentos","Orçamento quente sem ação em 24h gera alerta. (DRI: Bianca)"),unsafe_allow_html=True)
     conn=get_conn(); odf=pd.read_sql("SELECT * FROM orcamentos ORDER BY criado_em DESC",conn); conn.close()
@@ -1478,7 +2106,7 @@ elif aba=="📣  SBAR":
             c1,c2,c3=st.columns(3)
             with c1: tp_sb=st.selectbox("Tipo",["Resumo Diário (Gerente→CEO)","Evento Adverso Clínico","Problema Operacional","Pedido de Apoio","Alerta Comercial"])
             with c2: rem_sb=st.selectbox("Remetente",EQUIPE)
-            with c3: dest_sb=st.selectbox("Destinatário",["Dr. Vinícius Mariano","Dra. Bárbara Mariano","Gerente Executiva","Bianca"])
+            with c3: dest_sb=st.selectbox("Destinatário",["Dr. Vinícius Mariano","Dra. Bárbara Mariano","Vanessa","Bianca"])
             sit_sb=st.text_area("S — SITUAÇÃO: O que está acontecendo agora?",height=80)
             bg_sb=st.text_area("B — BACKGROUND: Contexto e histórico",height=80)
             av_sb=st.text_area("A — AVALIAÇÃO: Sua leitura do problema",height=80)
@@ -1578,6 +2206,16 @@ elif aba=="💰  Financeiro & EBITDA":
 # ══════════════════════════════════════════════════════════════
 # 14. OKRs
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar Financeiro ──────────────────────────────────────
+    try:
+        if dre_r:
+            _sec_fin=[("Financeiro e EBITDA",[f"Receita Bruta: {fmt(rb)}",f"EBITDA: {fmt(ebitda)}",f"Margem EBITDA: {margem_ebitda:.1f}%",f"Ponto Equilíbrio: {fmt(pe)}"])]
+            _txt_fin="\n".join([l for _,ls in _sec_fin for l in ls])
+            bloco_exportar("Financeiro e EBITDA",_sec_fin,_txt_fin)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="📐  OKRs":
     st.markdown(titulo_secao("OKRs — Objetivos e Resultados-Chave","Objectives conectados à execução diária. Sem OKR, sem direção."),unsafe_allow_html=True)
     conn=get_conn(); okdf=pd.read_sql("SELECT * FROM okrs WHERE ativo=1 ORDER BY trimestre,objetivo",conn); conn.close()
@@ -1620,6 +2258,16 @@ elif aba=="📐  OKRs":
 # ══════════════════════════════════════════════════════════════
 # 15. IMPORTAR SUPPORT CLINIC
 # ══════════════════════════════════════════════════════════════
+    # ── Exportar OKRs ───────────────────────────────────────────
+    try:
+        if not okdf.empty:
+            _sec_okr=[("OKRs Ativos",[f"{r['objetivo'][:40]} | KR: {r['key_result'][:30]} | {pct_safe(r['atual_val'],r['meta_val']):.0f}%" for _,r in okdf.iterrows()])]
+            _txt_okr="\n".join([l for _,ls in _sec_okr for l in ls])
+            bloco_exportar("OKRs",_sec_okr,_txt_okr)
+    except Exception as _ex:
+        st.caption(f"Exportar: {_ex}")
+
+
 elif aba=="🧬  Importar Support Clinic":
     st.markdown(titulo_secao("Ingestão — Support Clinic","Arraste o relatório exportado. A IA lê, extrai e gera diagnóstico AME."),unsafe_allow_html=True)
     st.markdown(f"""<div style="background:{SURF};border:1px solid {BORDER};border-radius:16px;padding:18px 22px;margin-bottom:20px;box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 4px 24px rgba(0,0,0,0.4)">
@@ -1747,7 +2395,7 @@ Nunca responda sem responsável, prazo e entrega definidos.
 ## Equipe da Integrative Campinas
 - Dr. Vinícius Mariano: CEO, estratégia, financeiro, RH e cultura
 - Dra. Bárbara Mariano: Diretora Técnica, protocolos, qualidade e equipe assistencial
-- Gerente Executiva: execução diária, agenda, indicadores e processos
+- Vanessa (Gerente Executiva): execução diária, agenda, indicadores e processos
 - Bianca: Coordenadora Comercial e Closer, fechamento e orçamentos
 - Aline: Analista de Leads, qualificação e follow-up (D+1/D+3/D+7/D+9/D+30)
 - Beatriz: Recepção Comercial + RFM, agenda, confirmações, indicações e reativação
