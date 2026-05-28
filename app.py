@@ -535,12 +535,17 @@ def trocar_senha(user_id, nova_senha):
 # TELA DE TROCA DE SENHA — exibida obrigatoriamente no 1º acesso
 # ══════════════════════════════════════════════════════════════
 def tela_trocar_senha():
+    # CSS idêntico ao da tela de login
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
     html,body,[class*="css"]{font-family:'Outfit',sans-serif!important;background:#F0F0F0!important;}
     .main{background:#F0F0F0!important;}
     .block-container{padding:0!important;max-width:100%!important;}
+    [data-testid="stVerticalBlock"]{gap:0!important;}
+    [data-testid="stColumns"]{gap:0!important;align-items:stretch;}
+    [data-testid="stColumn"]{padding:0!important;}
+    [data-testid="stColumn"]>div{padding:0!important;}
     section[data-testid="stSidebar"]{display:none!important;width:0!important;}
     header{display:none!important;}
     .stTextInput>div>div>input{background:#FFFFFF!important;border:3px solid #121212!important;
@@ -558,55 +563,65 @@ def tela_trocar_senha():
 
     col_l, col_r = st.columns([1, 1])
 
+    # Painel esquerdo — vermelho, string de linha única (sem aspas triplas)
     with col_l:
-        _hts = (
+        st.markdown(
             '<div style="background:#D02020;min-height:100vh;padding:60px 50px;'
             'display:flex;flex-direction:column;justify-content:center;'
             'border-right:4px solid #121212">'
+            '<div style="display:flex;gap:6px;align-items:center;margin-bottom:24px">'
+            '<div style="width:12px;height:12px;background:#F0C020;border-radius:50%"></div>'
+            '<span style="font-size:1rem;font-weight:900;color:#FFFFFF;'
+            'text-transform:uppercase;font-family:Outfit,sans-serif">LAB Metrics</span>'
+            '</div>'
+            '<div style="height:4px;background:#F0C020;margin-bottom:32px"></div>'
             '<div style="font-size:2.8rem;font-weight:900;color:#FFFFFF;'
             'text-transform:uppercase;letter-spacing:-0.03em;line-height:1;'
             'font-family:Outfit,sans-serif;margin-bottom:20px">'
             'PRIMEIRO<br>ACESSO</div>'
-            '<div style="height:4px;background:#F0C020;margin-bottom:28px"></div>'
             '<div style="font-size:1rem;color:rgba(255,255,255,0.8);'
-            'font-weight:500;line-height:1.7">'
-            'Por seguran\u00e7a, voc\u00ea precisa criar uma senha pessoal antes de continuar. '
-            'Ela substitui a senha padr\u00e3o e fica registrada apenas para voc\u00ea.'
+            'font-weight:500;line-height:1.7;margin-bottom:36px">'
+            'Por seguran\u00e7a, crie uma senha pessoal antes de continuar. '
+            'Ela substitui a senha padr\u00e3o.'
             '</div>'
-            '<div style="margin-top:40px;padding:18px;'
-            'background:rgba(255,255,255,0.1);border-left:4px solid #F0C020">'
-            '<div style="font-size:9px;color:rgba(255,255,255,0.6);'
-            'text-transform:uppercase;letter-spacing:0.15em;'
-            'font-weight:700;margin-bottom:8px">Regras da senha</div>'
-            '<div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:2">'
+            '<div style="padding:18px;background:rgba(255,255,255,0.1);border-left:4px solid #F0C020">'
+            '<div style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;'
+            'letter-spacing:0.15em;font-weight:700;margin-bottom:8px">Regras da senha</div>'
+            '<div style="font-size:12px;color:rgba(255,255,255,0.85);line-height:2.2">'
             '\u2713 M\u00ednimo 6 caracteres<br>'
             '\u2713 Diferente da senha padr\u00e3o<br>'
-            '\u2713 Confirme duas vezes'
-            '</div></div></div>'
+            '\u2713 Confirme duas vezes</div></div></div>',
+            unsafe_allow_html=True
         )
-        st.markdown(_hts, unsafe_allow_html=True)
 
+    # Painel direito — formulário nativo, sem div container com min-height
     with col_r:
+        # CSS extra para alinhar o painel direito
+        st.markdown("""
+<style>
+[data-testid="column"]:nth-child(2) {background:#F0F0F0;}
+[data-testid="column"]:nth-child(2)>div:first-child{padding:48px 52px!important;
+    max-width:440px;margin:0 auto;width:100%;}
+</style>""", unsafe_allow_html=True)
+
         _nome_prim = st.session_state.get("user_nome","").split()[0]
-        _hr2 = (
-            '<div style="min-height:100vh;background:#F0F0F0;padding:60px 50px;'
-            'display:flex;flex-direction:column;justify-content:center">'
-            '<div style="max-width:380px;margin:0 auto;width:100%">'
+        st.markdown(
             f'<div style="font-size:9px;color:#888;text-transform:uppercase;'
-            f'letter-spacing:0.2em;font-weight:700;margin-bottom:8px">Bem-vindo(a), {_nome_prim}</div>'
-            '<div style="font-size:2rem;font-weight:900;color:#121212;'
-            'text-transform:uppercase;letter-spacing:-0.02em;'
-            'line-height:1;margin-bottom:4px">CRIE SUA<br>SENHA</div>'
-            '<div style="height:4px;background:#D02020;width:60px;margin:12px 0 32px"></div>'
+            f'letter-spacing:0.2em;font-weight:700;font-family:Outfit,sans-serif;'
+            f'margin-bottom:10px">Bem-vindo(a), {_nome_prim}</div>'
+            '<div style="font-size:2.4rem;font-weight:900;color:#121212;'
+            'text-transform:uppercase;letter-spacing:-0.02em;line-height:1;'
+            'font-family:Outfit,sans-serif">CRIE SUA<br>SENHA</div>'
+            '<div style="height:4px;background:#D02020;width:56px;margin:14px 0 32px"></div>',
+            unsafe_allow_html=True
         )
-        st.markdown(_hr2, unsafe_allow_html=True)
 
         nova1 = st.text_input("NOVA SENHA", type="password",
             placeholder="mínimo 6 caracteres", key="nova_pw1")
         nova2 = st.text_input("CONFIRMAR SENHA", type="password",
             placeholder="repita a senha", key="nova_pw2")
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
         if st.button("SALVAR E ENTRAR →", use_container_width=True, key="btn_trocar"):
             if not nova1 or not nova2:
@@ -623,8 +638,6 @@ def tela_trocar_senha():
                 st.session_state.primeiro_acesso = False
                 st.success("Senha criada! Entrando no sistema...")
                 st.rerun()
-
-        st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # HELPERS & COMPONENTES BAUHAUS
