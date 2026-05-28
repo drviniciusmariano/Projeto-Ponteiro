@@ -8,68 +8,375 @@ st.set_page_config(page_title="LAB Metrics — Integrative Campinas",
     page_icon="🩺", layout="wide", initial_sidebar_state="expanded")
 
 # ══════════════════════════════════════════════════════════════
-# DESIGN SYSTEM — LINEAR / MODERN
+# DESIGN SYSTEM — BAUHAUS
 # ══════════════════════════════════════════════════════════════
-BG_BASE="#050506"; BG_DEEP="#020203"; BG_ELEV="#0a0a0c"
-FG="#EDEDEF"; FG_MUTED="#8A8F98"
-ACCENT="#5E6AD2"; ACCENT_BR="#6872D9"
-SURF="rgba(255,255,255,0.05)"; SURF_HOV="rgba(255,255,255,0.08)"
-BORDER="rgba(255,255,255,0.06)"; BORDER_HOV="rgba(255,255,255,0.10)"
-BORDER_ACC="rgba(94,106,210,0.30)"
-GREEN="#4ade80"; RED_SOFT="#f87171"; YELL_SOFT="#fbbf24"
-# aliases legado
-BLACK=BG_BASE; WHITE=FG; RED="#f87171"; BLUE=ACCENT; YELL=YELL_SOFT; MUTED="#1a1a1f"
-GOLD=ACCENT; NAVY=BG_BASE; CARD=BG_ELEV; MID="rgba(255,255,255,0.04)"
-IVORY=FG; GOLD_STR=ACCENT
+BG    = "#F0F0F0"   # off-white canvas
+FG    = "#121212"   # stark black
+RED_B = "#D02020"   # Bauhaus red
+BLUE_B= "#1040C0"   # Bauhaus blue
+YELL_B= "#F0C020"   # Bauhaus yellow
+MUTED = "#E0E0E0"
+WHITE = "#FFFFFF"
+BLACK = "#121212"
 
-st.markdown(f"""
+# aliases funcionais (mantidos para compatibilidade com código das abas)
+GREEN      = "#2A8A2A"    # verde funcional (semáforo)
+RED_SOFT   = RED_B
+YELL_SOFT  = YELL_B
+ACCENT     = BLUE_B
+ACCENT_BR  = "#1A50D0"
+BG_BASE    = BG
+BG_DEEP    = WHITE
+BG_ELEV    = WHITE
+SURF       = WHITE
+SURF_HOV   = MUTED
+BORDER     = BLACK
+BORDER_HOV = BLACK
+BORDER_ACC = RED_B
+GOLD       = YELL_B
+NAVY       = BLACK
+CARD       = WHITE
+MID        = MUTED
+IVORY      = FG
+GOLD_STR   = YELL_B
+FG_MUTED   = "#444444"
+
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-*,*::before,*::after{{box-sizing:border-box;}}
-html,body,[class*="css"]{{font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}}
-.main{{background:radial-gradient(ellipse at top,#0a0a0f 0%,{BG_BASE} 50%,{BG_DEEP} 100%);min-height:100vh;position:relative;}}
-.block-container{{padding:1.5rem 2rem 3rem;position:relative;z-index:1;}}
-.main::before{{content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:600px;background:radial-gradient(ellipse,rgba(94,106,210,0.18) 0%,transparent 70%);filter:blur(80px);pointer-events:none;z-index:0;animation:floatBlob 10s ease-in-out infinite;}}
-.main::after{{content:'';position:fixed;bottom:0;right:-100px;width:600px;height:500px;background:radial-gradient(ellipse,rgba(94,106,210,0.08) 0%,transparent 70%);filter:blur(100px);pointer-events:none;z-index:0;animation:floatBlob2 14s ease-in-out infinite;}}
-@keyframes floatBlob{{0%,100%{{transform:translateX(-50%) translateY(0) rotate(0deg);}}50%{{transform:translateX(-50%) translateY(-20px) rotate(1deg);}}}}
-@keyframes floatBlob2{{0%,100%{{transform:translateY(0) rotate(0deg);}}50%{{transform:translateY(-16px) rotate(-1deg);}}}}
-h1,h2,h3{{color:{FG};font-weight:600;letter-spacing:-0.03em;line-height:1.1;}}
-div[data-testid="stSidebarContent"]{{background:linear-gradient(180deg,#08080b 0%,{BG_DEEP} 100%);border-right:1px solid {BORDER};}}
-div[data-testid="metric-container"]{{background:linear-gradient(135deg,{SURF} 0%,rgba(255,255,255,0.02) 100%);border:1px solid {BORDER};border-radius:16px;padding:20px 22px;box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 4px 24px rgba(0,0,0,0.4);transition:all 0.2s ease-out;}}
-div[data-testid="metric-container"]:hover{{border-color:{BORDER_HOV};box-shadow:0 0 0 1px rgba(255,255,255,0.10),0 8px 40px rgba(0,0,0,0.5),0 0 60px rgba(94,106,210,0.06);transform:translateY(-2px);}}
-div[data-testid="stMetricValue"]{{font-size:1.75rem;font-weight:600;color:{FG};letter-spacing:-0.02em;}}
-div[data-testid="stMetricLabel"]{{font-size:0.7rem;color:{FG_MUTED};text-transform:uppercase;letter-spacing:0.12em;font-weight:500;}}
-div[data-testid="stMetricDelta"]>div{{font-size:0.75rem;}}
-.stButton>button{{background:{ACCENT};color:{FG};border:none;border-radius:8px;font-weight:500;font-size:0.85rem;letter-spacing:0.01em;padding:9px 20px;box-shadow:0 0 0 1px rgba(94,106,210,0.5),0 4px 12px rgba(94,106,210,0.3),inset 0 1px 0 0 rgba(255,255,255,0.15);transition:all 0.2s ease-out;}}
-.stButton>button:hover{{background:{ACCENT_BR};box-shadow:0 0 0 1px rgba(94,106,210,0.6),0 6px 20px rgba(94,106,210,0.4),inset 0 1px 0 0 rgba(255,255,255,0.2);transform:translateY(-1px);}}
-.stButton>button:active{{transform:scale(0.98) translateY(0);}}
-.stTabs [data-baseweb="tab-list"]{{background:{SURF};border:1px solid {BORDER};border-radius:10px;padding:3px;gap:2px;}}
-.stTabs [data-baseweb="tab"]{{border-radius:8px;font-weight:500;font-size:0.8rem;color:{FG_MUTED};padding:8px 16px;border:none;transition:all 0.15s ease-out;}}
-.stTabs [data-baseweb="tab"]:hover{{color:{FG};background:{SURF_HOV};}}
-.stTabs [aria-selected="true"]{{background:{SURF_HOV}!important;color:{FG}!important;box-shadow:0 0 0 1px {BORDER_HOV},inset 0 1px 0 rgba(255,255,255,0.08);}}
-.stTextInput>div>div>input,.stNumberInput>div>div>input,.stTextArea textarea{{background:#0f0f12;border:1px solid rgba(255,255,255,0.10);border-radius:8px;color:{FG};font-family:'Inter',sans-serif;transition:border-color 0.15s,box-shadow 0.15s;}}
-.stTextInput>div>div>input:focus,.stNumberInput>div>div>input:focus,.stTextArea textarea:focus{{border-color:{ACCENT};box-shadow:0 0 0 3px rgba(94,106,210,0.15);outline:none;}}
-.stSelectbox>div>div{{background:#0f0f12;border:1px solid rgba(255,255,255,0.10);border-radius:8px;color:{FG};}}
-.stCheckbox>label{{color:{FG_MUTED}!important;font-size:0.875rem;}}
-.stCheckbox>label:hover{{color:{FG}!important;}}
-.stRadio>div>label{{color:{FG_MUTED}!important;font-size:0.85rem;}}
-.stRadio>div>label:hover{{color:{FG}!important;}}
-.stExpander{{background:{SURF};border:1px solid {BORDER};border-radius:12px;overflow:hidden;}}
-.stExpander summary{{color:{FG}!important;font-weight:500;font-size:0.875rem;padding:14px 16px;}}
-.stExpander summary:hover{{background:{SURF_HOV};}}
-.stProgress>div>div>div>div{{background:linear-gradient(90deg,{ACCENT},{ACCENT_BR});border-radius:99px;}}
-.stProgress>div>div{{background:rgba(255,255,255,0.06);border-radius:99px;}}
-.stDataFrame{{border:1px solid {BORDER};border-radius:12px;overflow:hidden;}}
-.stDataFrame th{{background:{SURF}!important;color:{FG_MUTED}!important;font-size:0.7rem!important;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid {BORDER}!important;}}
-.stDataFrame td{{color:{FG}!important;font-size:0.85rem!important;border-bottom:1px solid {BORDER}!important;background:transparent!important;}}
-.stSuccess{{background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:8px;}}
-.stWarning{{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;}}
-.stError{{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:8px;}}
-::-webkit-scrollbar{{width:4px;height:4px;}}
-::-webkit-scrollbar-track{{background:transparent;}}
-::-webkit-scrollbar-thumb{{background:rgba(255,255,255,0.1);border-radius:99px;}}
-.stMarkdown p{{color:{FG_MUTED};line-height:1.65;font-size:0.9rem;}}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, [class*="css"] {
+    font-family: 'Outfit', 'Arial Black', sans-serif !important;
+    background-color: #F0F0F0 !important;
+}
+
+/* Canvas principal */
+.main {
+    background-color: #F0F0F0 !important;
+    min-height: 100vh;
+}
+
+.block-container {
+    padding: 2rem 2.5rem 4rem !important;
+    max-width: 1400px;
+}
+
+/* Sidebar Bauhaus — coluna preta lateral */
+div[data-testid="stSidebarContent"] {
+    background-color: #121212 !important;
+    border-right: 4px solid #121212 !important;
+}
+
+/* Radio da sidebar — links de navegação */
+div[data-testid="stSidebarContent"] .stRadio > div {
+    gap: 2px !important;
+}
+div[data-testid="stSidebarContent"] .stRadio > div > label {
+    color: #E0E0E0 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.78rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    padding: 10px 14px !important;
+    border-radius: 0 !important;
+    border-left: 4px solid transparent !important;
+    transition: all 0.15s ease-out !important;
+    cursor: pointer;
+    display: block;
+}
+div[data-testid="stSidebarContent"] .stRadio > div > label:hover {
+    background-color: #1F1F1F !important;
+    border-left-color: #F0C020 !important;
+    color: #F0C020 !important;
+}
+div[data-testid="stSidebarContent"] .stRadio [data-baseweb="radio"]:has(input:checked) + div {
+    color: #F0C020 !important;
+}
+/* Selectbox e inputs na sidebar */
+div[data-testid="stSidebarContent"] .stSelectbox > div > div,
+div[data-testid="stSidebarContent"] .stNumberInput > div > div > input {
+    background: #1F1F1F !important;
+    border: 2px solid #444 !important;
+    color: #F0F0F0 !important;
+    border-radius: 0 !important;
+}
+div[data-testid="stSidebarContent"] p,
+div[data-testid="stSidebarContent"] label,
+div[data-testid="stSidebarContent"] div {
+    color: #E0E0E0 !important;
+}
+
+/* Headings */
+h1, h2, h3 {
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: -0.02em !important;
+    color: #121212 !important;
+}
+
+/* Métricas nativas Streamlit */
+div[data-testid="metric-container"] {
+    background: #FFFFFF !important;
+    border: 4px solid #121212 !important;
+    border-radius: 0 !important;
+    padding: 20px 22px !important;
+    box-shadow: 6px 6px 0px 0px #121212 !important;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out !important;
+}
+div[data-testid="metric-container"]:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 8px 8px 0px 0px #121212 !important;
+}
+div[data-testid="stMetricValue"] {
+    font-size: 1.8rem !important;
+    font-weight: 900 !important;
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    letter-spacing: -0.02em !important;
+}
+div[data-testid="stMetricLabel"] {
+    font-size: 0.65rem !important;
+    color: #444 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.15em !important;
+    font-weight: 700 !important;
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Botões — estilo Bauhaus com press effect */
+.stButton > button {
+    background-color: #1040C0 !important;
+    color: #FFFFFF !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    padding: 10px 22px !important;
+    box-shadow: 4px 4px 0px 0px #121212 !important;
+    transition: all 0.15s ease-out !important;
+}
+.stButton > button:hover {
+    background-color: #0A30A0 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 6px 6px 0px 0px #121212 !important;
+}
+.stButton > button:active {
+    transform: translate(3px, 3px) !important;
+    box-shadow: 1px 1px 0px 0px #121212 !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    background: #121212 !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    padding: 4px !important;
+    gap: 3px !important;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 0 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #E0E0E0 !important;
+    padding: 8px 16px !important;
+    border: none !important;
+    transition: all 0.15s ease-out !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #F0C020 !important;
+    color: #121212 !important;
+}
+.stTabs [aria-selected="true"] {
+    background-color: #F0C020 !important;
+    color: #121212 !important;
+}
+
+/* Inputs */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stTextArea textarea {
+    background: #FFFFFF !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stTextArea textarea:focus {
+    border-color: #1040C0 !important;
+    box-shadow: 3px 3px 0px 0px #1040C0 !important;
+    outline: none !important;
+}
+
+/* Selectbox */
+.stSelectbox > div > div {
+    background: #FFFFFF !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Checkbox */
+.stCheckbox > label {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+}
+
+/* Radio (no main content) */
+.stRadio > div > label {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 500 !important;
+}
+
+/* Expander */
+.stExpander {
+    background: #FFFFFF !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0px 0px #121212 !important;
+    overflow: hidden !important;
+}
+.stExpander summary {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.875rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 14px 18px !important;
+    background: #FFFFFF !important;
+}
+.stExpander summary:hover {
+    background: #F0C020 !important;
+}
+
+/* Progress bar */
+.stProgress > div > div > div > div {
+    background: #1040C0 !important;
+    border-radius: 0 !important;
+}
+.stProgress > div > div {
+    background: #E0E0E0 !important;
+    border-radius: 0 !important;
+    border: 2px solid #121212 !important;
+}
+
+/* DataFrame */
+.stDataFrame {
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0px 0px #121212 !important;
+    overflow: hidden !important;
+}
+.stDataFrame th {
+    background: #121212 !important;
+    color: #F0C020 !important;
+    font-size: 0.65rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+}
+.stDataFrame td {
+    color: #121212 !important;
+    font-size: 0.85rem !important;
+    background: #FFFFFF !important;
+    border-bottom: 2px solid #E0E0E0 !important;
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Alertas Bauhaus */
+.stSuccess {
+    background: #2A8A2A !important;
+    color: white !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px 0px #121212 !important;
+}
+.stWarning {
+    background: #F0C020 !important;
+    color: #121212 !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px 0px #121212 !important;
+}
+.stError {
+    background: #D02020 !important;
+    color: white !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px 0px #121212 !important;
+}
+.stInfo {
+    background: #1040C0 !important;
+    color: white !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px 0px #121212 !important;
+}
+
+/* Scrollbar Bauhaus */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #E0E0E0; }
+::-webkit-scrollbar-thumb { background: #121212; border-radius: 0; }
+
+/* Markdown paragraphs */
+.stMarkdown p {
+    color: #444444;
+    line-height: 1.65;
+    font-size: 0.9rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+}
+
+/* Separator */
+hr { border: none; border-top: 3px solid #121212; margin: 24px 0; }
+
+/* Form submit button especial */
+.stFormSubmitButton > button {
+    background-color: #D02020 !important;
+    color: #FFFFFF !important;
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    padding: 12px 28px !important;
+    box-shadow: 5px 5px 0px 0px #121212 !important;
+    transition: all 0.15s ease-out !important;
+    width: 100% !important;
+}
+.stFormSubmitButton > button:hover {
+    background-color: #B01A1A !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 7px 7px 0px 0px #121212 !important;
+}
+.stFormSubmitButton > button:active {
+    transform: translate(4px, 4px) !important;
+    box-shadow: 1px 1px 0px 0px #121212 !important;
+}
 </style>""", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════
 # BANCO DE DADOS — schema completo
@@ -151,7 +458,7 @@ def init_db():
 init_db()
 
 # ══════════════════════════════════════════════════════════════
-# HELPERS & COMPONENTES LINEAR
+# HELPERS & COMPONENTES BAUHAUS
 # ══════════════════════════════════════════════════════════════
 MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
 EQUIPE=["Gerente Executiva","Bianca","Aline","Beatriz","Paloma","Dr. Vinícius Mariano","Dra. Bárbara Mariano"]
@@ -165,73 +472,111 @@ def pct_safe(a,b): return round((a/b)*100,1) if b else 0.0
 
 def semaforo(p,limiar=85):
     if p>=100: return "🟢",GREEN
-    if p>=limiar: return "🟡",YELL_SOFT
-    return "🔴",RED_SOFT
+    if p>=limiar: return "🟡",YELL_B
+    return "🔴",RED_B
 
-# card Linear: fundo translúcido + borda hairline + shadow multicamada
-def card(titulo,valor,sub="",cor=GREEN,grande=False):
-    fs="2rem" if grande else "1.5rem"
-    return f"""<div style="background:linear-gradient(135deg,{SURF} 0%,rgba(255,255,255,0.02) 100%);
-        border:1px solid {BORDER};border-radius:16px;padding:20px 22px;margin-bottom:12px;
-        box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 4px 24px rgba(0,0,0,0.4);transition:all 0.2s ease-out">
-        <div style="font-size:10px;color:{FG_MUTED};text-transform:uppercase;letter-spacing:0.12em;font-weight:500;margin-bottom:8px">{titulo}</div>
-        <div style="font-size:{fs};font-weight:600;color:{cor};letter-spacing:-0.02em;line-height:1.1">{valor}</div>
-        {f'<div style="font-size:12px;color:{FG_MUTED};margin-top:6px">{sub}</div>' if sub else ''}
+# ── Componentes Bauhaus ────────────────────────────────────────
+
+def card(titulo, valor, sub="", cor=BLUE_B, grande=False):
+    """Card Bauhaus: fundo branco, borda grossa preta, shadow offset, décor geométrico."""
+    fs = "2.2rem" if grande else "1.7rem"
+    # Décor: quadrado colorido no canto superior direito
+    decor_cor = cor
+    return f"""<div style="background:#FFFFFF;border:4px solid #121212;border-radius:0;
+        padding:20px 22px;margin-bottom:12px;
+        box-shadow:6px 6px 0px 0px #121212;
+        transition:transform 0.15s ease-out,box-shadow 0.15s ease-out;
+        position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;width:12px;height:100%;background:{decor_cor};opacity:0.8"></div>
+        <div style="font-size:9px;color:#444;text-transform:uppercase;letter-spacing:0.15em;
+                    font-weight:700;margin-bottom:10px;font-family:'Outfit',sans-serif">{titulo}</div>
+        <div style="font-size:{fs};font-weight:900;color:{cor};letter-spacing:-0.02em;
+                    line-height:1;font-family:'Outfit',sans-serif">{valor}</div>
+        {f'<div style="font-size:12px;color:#444;margin-top:8px;font-weight:500;font-family:Outfit,sans-serif">{sub}</div>' if sub else ''}
     </div>"""
 
-# barra fina com gradiente Linear
-def barra(p,label="",cor=None,bg=None):
-    c=cor or (RED_SOFT if p<70 else YELL_SOFT if p<100 else GREEN)
-    return f"""<div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:{FG_MUTED};margin-bottom:6px">
-            <span>{label}</span><span style="color:{c};font-weight:600">{min(int(p),100)}%</span>
+def barra(p, label="", cor=None, bg=None):
+    """Barra de progresso Bauhaus: retangular, borda preta, sem arredondamento."""
+    c = cor or (RED_B if p<70 else YELL_B if p<100 else GREEN)
+    txt_cor = "#121212" if c == YELL_B else "#FFFFFF"
+    return f"""<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;
+                    font-weight:700;color:#121212;margin-bottom:5px;
+                    text-transform:uppercase;letter-spacing:0.08em;font-family:'Outfit',sans-serif">
+            <span>{label}</span>
+            <span style="color:{c}">{min(int(p),100)}%</span>
         </div>
-        <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden">
-            <div style="height:4px;width:{min(int(p),100)}%;background:{c};border-radius:99px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1)"></div>
+        <div style="height:14px;background:#E0E0E0;border:2px solid #121212;
+                    border-radius:0;overflow:hidden;position:relative">
+            <div style="height:100%;width:{min(int(p),100)}%;background:{c};
+                        border-radius:0;transition:width 0.4s ease-out;
+                        border-right:{('2px solid #121212' if p<99 else 'none')}"></div>
         </div>
     </div>"""
 
-def badge(texto,cor=ACCENT):
-    return f'<span style="background:{cor}22;color:{cor};border:1px solid {cor}44;border-radius:99px;padding:3px 10px;font-size:10px;font-weight:500;letter-spacing:0.05em">{texto}</span>'
+def badge(texto, cor=BLUE_B):
+    """Badge Bauhaus: retangular, uppercase, borda preta."""
+    txt = "#121212" if cor == YELL_B else "#FFFFFF"
+    return f'<span style="background:{cor};color:{txt};border:2px solid #121212;border-radius:0;padding:3px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;font-family:Outfit,sans-serif;box-shadow:2px 2px 0px 0px #121212">{texto}</span>'
 
-# título de seção com marcador accent vertical
-def titulo_secao(t,sub=""):
-    return f"""<div style="margin-bottom:{'8px' if sub else '20px'}">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-            <div style="width:3px;height:20px;background:{ACCENT};border-radius:99px;opacity:0.9"></div>
-            <h2 style="margin:0;font-size:1.25rem;font-weight:600;color:{FG};letter-spacing:-0.02em">{t}</h2>
+def titulo_secao(t, sub=""):
+    """Título Bauhaus: uppercase preto com linha horizontal e décor geométrico."""
+    return f"""<div style="margin-bottom:{'8px' if sub else '24px'}">
+        <div style="display:flex;align-items:center;gap:0;margin-bottom:0">
+            <div style="width:8px;height:40px;background:{RED_B};margin-right:14px;flex-shrink:0"></div>
+            <h2 style="margin:0;font-size:1.5rem;font-weight:900;color:#121212;
+                       text-transform:uppercase;letter-spacing:-0.01em;
+                       font-family:'Outfit',sans-serif;line-height:1">{t}</h2>
         </div>
-        {f'<p style="margin:2px 0 16px 13px;font-size:12px;color:{FG_MUTED}">{sub}</p>' if sub else '<div style="margin-bottom:16px"></div>'}
+        <div style="height:3px;background:#121212;margin:10px 0 {'6px' if sub else '0'}"></div>
+        {f'<p style="margin:4px 0 16px 22px;font-size:12px;color:#444;font-weight:500;font-family:Outfit,sans-serif">{sub}</p>' if sub else '<div style="margin-bottom:18px"></div>'}
     </div>"""
 
-# painel de KPI inline (grid 4 col)
 def kpi_grid(items):
-    """items = list of (label, value, sub, cor)"""
+    """Grid de KPIs Bauhaus: cards brancos com bordas pretas, shadow offset."""
+    n = len(items)
     cols_html = ""
-    for lbl,val,sub,cor in items:
-        cols_html += f"""<div style="background:linear-gradient(135deg,{SURF} 0%,rgba(255,255,255,0.02) 100%);
-            border:1px solid {BORDER};border-radius:16px;padding:18px 20px;
-            box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 4px 24px rgba(0,0,0,0.4)">
-            <div style="font-size:10px;color:{FG_MUTED};text-transform:uppercase;letter-spacing:0.12em;font-weight:500;margin-bottom:8px">{lbl}</div>
-            <div style="font-size:1.65rem;font-weight:600;color:{cor};letter-spacing:-0.02em;line-height:1.1">{val}</div>
-            {f'<div style="font-size:11px;color:{FG_MUTED};margin-top:5px">{sub}</div>' if sub else ''}
+    cores_decor = [RED_B, BLUE_B, YELL_B, RED_B, BLUE_B, YELL_B]
+    for i,(lbl,val,sub,cor) in enumerate(items):
+        dec = cores_decor[i % len(cores_decor)]
+        txt_dec = "#121212" if dec == YELL_B else "#FFFFFF"
+        cols_html += f"""<div style="background:#FFFFFF;border:4px solid #121212;
+            border-radius:0;padding:18px 20px;
+            box-shadow:5px 5px 0px 0px #121212;
+            transition:transform 0.15s ease-out;
+            position:relative;overflow:hidden">
+            <div style="position:absolute;top:0;left:0;width:6px;height:100%;background:{dec}"></div>
+            <div style="padding-left:10px">
+                <div style="font-size:9px;color:#444;text-transform:uppercase;letter-spacing:0.15em;
+                            font-weight:700;margin-bottom:10px;font-family:'Outfit',sans-serif">{lbl}</div>
+                <div style="font-size:1.7rem;font-weight:900;color:{cor};letter-spacing:-0.02em;
+                            line-height:1;font-family:'Outfit',sans-serif">{val}</div>
+                {f'<div style="font-size:11px;color:#444;margin-top:6px;font-weight:500;font-family:Outfit,sans-serif">{sub}</div>' if sub else ''}
+            </div>
         </div>"""
-    return f'<div style="display:grid;grid-template-columns:repeat({len(items)},1fr);gap:14px;margin-bottom:20px">{cols_html}</div>'
+    return f'<div style="display:grid;grid-template-columns:repeat({n},1fr);gap:12px;margin-bottom:20px">{cols_html}</div>'
 
-# linha DRE com design Linear
-def dre_linha(label,valor,pct_val,cor,destaque=False):
-    bg = BG_DEEP if destaque else "transparent"
-    bd = f"1px solid {BORDER_ACC}" if destaque else f"1px solid rgba(255,255,255,0.03)"
-    fw = "600" if destaque else "400"
-    fs = "14px" if destaque else "12px"
-    return f"""<div style="background:{bg};border:{bd};border-radius:8px;padding:9px 16px;
-        margin-bottom:3px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:{fs};font-weight:{fw};color:{cor if destaque else FG_MUTED}">{label}</span>
+def dre_linha(label, valor, pct_val, cor, destaque=False):
+    """Linha DRE Bauhaus: destaque com fundo colorido e borda grossa."""
+    if destaque:
+        bg = "#121212"; txt_cor = "#F0C020"; val_cor = "#F0C020"; fw = "900"; fs = "14px"; pad = "12px 16px"
+        bd = f"3px solid #121212"; shdw = ""
+    else:
+        bg = "#FFFFFF"; txt_cor = "#444"; val_cor = cor; fw = "500"; fs = "12px"; pad = "9px 16px"
+        bd = f"1px solid #E0E0E0"; shdw = ""
+    return f"""<div style="background:{bg};border:{bd};
+        padding:{pad};margin-bottom:3px;
+        display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:{fs};font-weight:{fw};color:{txt_cor};
+                     font-family:'Outfit',sans-serif;text-transform:{'uppercase' if destaque else 'none'};
+                     letter-spacing:{'.05em' if destaque else '0'}">{label}</span>
         <div style="display:flex;gap:20px;align-items:center">
-            <span style="font-size:11px;color:rgba(255,255,255,0.2)">{pct_val:.1f}%</span>
-            <span style="font-size:{'15' if destaque else '13'}px;font-weight:{'700' if destaque else '500'};color:{cor}">{fmt(valor)}</span>
+            <span style="font-size:10px;color:#888;font-family:Outfit,sans-serif">{pct_val:.1f}%</span>
+            <span style="font-size:{'16' if destaque else '13'}px;font-weight:{fw};
+                         color:{val_cor};font-family:'Outfit',sans-serif">{fmt(valor)}</span>
         </div>
     </div>"""
+
 
 SCRIPTS_PADRAO={
     "Script 1 — Primeiro contato lead novo (Aline | 5 min)":
@@ -271,34 +616,57 @@ A — AVALIAÇÃO: [leitura da gerente sobre o dia]
 R — RECOMENDAÇÃO: [o que precisa ser feito amanhã, com DRI e prazo]""",
 }
 
+
 # ══════════════════════════════════════════════════════════════
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown(f"""<div style="padding:20px 16px 16px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <div style="width:28px;height:28px;background:linear-gradient(135deg,{ACCENT} 0%,{ACCENT_BR} 100%);border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(94,106,210,0.4)">
-                <span style="font-size:14px">🩺</span>
+    # Logo Bauhaus — três formas geométricas
+    st.markdown(f"""<div style="padding:20px 16px 0;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="display:flex;gap:4px;align-items:center">
+                <div style="width:14px;height:14px;background:{RED_B};border:2px solid #F0F0F0;border-radius:50%"></div>
+                <div style="width:14px;height:14px;background:{YELL_B};border:2px solid #F0F0F0;border-radius:0"></div>
+                <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid {BLUE_B}"></div>
             </div>
             <div>
-                <div style="font-size:0.9rem;font-weight:600;color:{FG};letter-spacing:-0.01em">LAB Metrics</div>
-                <div style="font-size:10px;color:{FG_MUTED};letter-spacing:0.05em">Integrative Campinas</div>
+                <div style="font-size:1rem;font-weight:900;color:#F0F0F0;
+                            letter-spacing:-0.01em;text-transform:uppercase;
+                            font-family:'Outfit',sans-serif">LAB Metrics</div>
+                <div style="font-size:9px;color:#888;letter-spacing:0.15em;
+                            text-transform:uppercase;font-family:'Outfit',sans-serif;
+                            font-weight:700">Integrative Campinas</div>
             </div>
         </div>
+        <div style="height:3px;background:{YELL_B};margin-bottom:0"></div>
     </div>""",unsafe_allow_html=True)
+
     conn=get_conn(); clin=conn.execute("SELECT * FROM clinica WHERE id=1").fetchone(); conn.close()
     estagio_sb=clin[4] if clin and len(clin)>4 else "Intuitivo"
-    st.markdown(f"""<div style="background:{SURF};border:1px solid {BORDER};border-radius:10px;padding:10px 14px;margin:0 4px 14px">
-        <div style="font-size:9px;color:{FG_MUTED};text-transform:uppercase;letter-spacing:0.1em;font-weight:500;margin-bottom:4px">Estágio</div>
-        <div style="font-size:12px;color:{ACCENT};font-weight:500">{estagio_sb}</div>
+    cor_est = {"Caótico":RED_B,"Intuitivo":YELL_B,"Documentado":BLUE_B,"Previsível":GREEN}.get(estagio_sb,BLUE_B)
+    txt_est = "#121212" if cor_est==YELL_B else "#FFFFFF"
+    st.markdown(f"""<div style="margin:0 0 12px;padding:8px 16px;background:{cor_est};
+        border-bottom:2px solid #444">
+        <div style="font-size:8px;color:{txt_est if cor_est!=YELL_B else '#444'};
+                    text-transform:uppercase;letter-spacing:0.15em;font-weight:700;
+                    font-family:'Outfit',sans-serif;opacity:0.8;margin-bottom:2px">Estágio</div>
+        <div style="font-size:13px;color:{txt_est};font-weight:900;
+                    text-transform:uppercase;letter-spacing:0.05em;
+                    font-family:'Outfit',sans-serif">{estagio_sb}</div>
     </div>""",unsafe_allow_html=True)
-    st.markdown(f"""<div style="background:{SURF};border:1px solid {BORDER};border-radius:10px;padding:10px 14px;margin:0 4px 14px">
-        <div style="font-size:9px;color:{FG_MUTED};text-transform:uppercase;letter-spacing:0.1em;font-weight:500;margin-bottom:6px">Período</div>""",unsafe_allow_html=True)
+
+    # Seletor de período
+    st.markdown(f"""<div style="padding:8px 16px 4px">
+        <div style="font-size:8px;color:#888;text-transform:uppercase;
+                    letter-spacing:0.15em;font-weight:700;font-family:'Outfit',sans-serif;
+                    margin-bottom:6px">Período</div>
+    </div>""",unsafe_allow_html=True)
     c1,c2=st.columns([3,2])
     with c1: mes_sel=st.selectbox("M",MESES,index=datetime.now().month-1,label_visibility="collapsed")
     with c2: ano_sel=st.number_input("A",value=datetime.now().year,min_value=2020,max_value=2030,label_visibility="collapsed")
-    st.markdown("</div>",unsafe_allow_html=True)
-    st.markdown("---")
+
+    st.markdown(f'<div style="height:3px;background:{YELL_B};margin:12px 0 4px"></div>',unsafe_allow_html=True)
+
     aba=st.radio("",[
         "🩺  Cockpit CEO",
         "☀️  Briefing — Abertura do Dia",
@@ -318,14 +686,17 @@ with st.sidebar:
         "🤖  Assistente LAB Metrics",
         "⚙️  Configurações",
     ],label_visibility="collapsed")
-    st.markdown(f"""<div style="position:fixed;bottom:20px;left:0;right:0;width:220px;padding:0 12px">
-        <div style="border-top:1px solid {BORDER};padding-top:12px">
-            <div style="font-size:10px;color:{FG_MUTED};line-height:1.6;font-style:italic">
-                "Ideia é prata. Mentalidade é ouro.<br>
-                <span style="color:{ACCENT};font-style:normal;font-weight:500">Execução é diamante.</span>"
-            </div>
+
+    st.markdown(f"""<div style="padding:16px;margin-top:8px;border-top:2px solid #333">
+        <div style="font-size:10px;color:#888;line-height:1.6;
+                    font-style:italic;font-family:'Outfit',sans-serif">
+            "Ideia é prata. Mentalidade é ouro.<br>
+            <span style="color:{YELL_B};font-style:normal;font-weight:700;font-size:10px">
+            Execução é diamante.
+            </span>"
         </div>
     </div>""",unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════
 # 1. COCKPIT CEO
