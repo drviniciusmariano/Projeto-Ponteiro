@@ -499,7 +499,7 @@ def tela_login():
         st.markdown(
             f'<div style="font-size:9px;color:{GRAY};text-transform:uppercase;'
             f'letter-spacing:0.18em;font-weight:600;margin-bottom:10px">Acesso Restrito</div>'
-            f'<div style="font-size:2rem;font-weight:800;color:{WHITE};'
+            f'<div style="font-size:2rem;font-weight:800;color:#000000;'
             f'letter-spacing:-0.03em;line-height:1;margin-bottom:4px">Entrar no<br>Sistema</div>'
             f'<div style="width:40px;height:3px;background:{AMBER};border-radius:2px;margin:14px 0 32px"></div>',
             unsafe_allow_html=True)
